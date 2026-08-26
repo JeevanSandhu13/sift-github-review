@@ -14,19 +14,35 @@ set -euo pipefail
 
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install --yes \
-    build-essential gfortran libcurl4-openssl-dev libssl-dev libxml2-dev \
-    r-base r-cran-lavaan r-cran-lme4 r-cran-psych \
-    r-cran-pscl r-cran-remotes r-cran-survey
+    build-essential gfortran libcurl4-openssl-dev libssl-dev libxml2-dev r-base
 
-Rscript --vanilla - <<'RSCRIPT'
+SIFT_R_SITE_LIBRARY="/usr/local/lib/R/site-library"
+install -d --mode=0755 "${SIFT_R_SITE_LIBRARY}"
+R_LIBS_SITE="${SIFT_R_SITE_LIBRARY}" R_LIBS_USER="${SIFT_R_SITE_LIBRARY}" Rscript --vanilla - <<'RSCRIPT'
 # Use a dated Posit Package Manager snapshot so CI receives reproducible,
 # precompiled Ubuntu 22.04 binaries. Compiling the same dependency graph from
 # CRAN source is both slower and liable to exceed a hosted runner's memory.
+site_library <- "/usr/local/lib/R/site-library"
+# GitHub's runner can combine current R with Ubuntu packages built for an older
+# R ABI. Resolve and install the complete qualification graph in the local site
+# library, considering only that library and R's matching base library.
+.libPaths(c(site_library, .Library))
+stopifnot(!normalizePath("/usr/lib/R/site-library") %in% normalizePath(.libPaths()))
 options(
   repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/jammy/2026-08-25"),
+  HTTPUserAgent = sprintf(
+    "R/%s R (%s)",
+    getRversion(),
+    paste(getRversion(), R.version["platform"], R.version["arch"], R.version["os"])
+  ),
   timeout = 900
 )
 required <- c(
+  lavaan = "0.7-2",
+  lme4 = "2.0-6",
+  psych = "2.6.5",
+  pscl = "1.5.9",
+  survey = "4.5",
   Rcpp = "1.1.2",
   RcppEigen = "0.3.4.0.2",
   data.table = "1.18.6.1",
@@ -54,6 +70,7 @@ if (length(needed)) {
 for (package in names(required)) {
   stopifnot(requireNamespace(package, quietly = TRUE))
   stopifnot(identical(as.character(packageVersion(package)), unname(required[[package]])))
+  stopifnot(startsWith(normalizePath(find.package(package)), normalizePath(site_library)))
 }
 RSCRIPT
 
