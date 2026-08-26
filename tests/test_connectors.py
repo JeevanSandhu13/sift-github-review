@@ -1022,10 +1022,14 @@ def test_cancellation_during_connect_waits_for_native_bound_then_stops_before_sq
     from sift.integration_core import CancellationToken
 
     token = CancellationToken()
+    connect_started = threading.Event()
+    connect_finished = threading.Event()
 
     class Connection:
         def __enter__(self):
+            connect_started.set()
             time.sleep(0.04)
+            connect_finished.set()
             return self
 
         def __exit__(self, *_args) -> None:
@@ -1048,9 +1052,13 @@ def test_cancellation_during_connect_waits_for_native_bound_then_stops_before_sq
     monkeypatch.setattr(
         connectors, "_create_bounded_engine", lambda *_, **__: engine,
     )
-    timer = threading.Timer(0.01, token.cancel)
-    timer.start()
-    started = time.monotonic()
+    def cancel_during_connect() -> None:
+        if connect_started.wait(timeout=2):
+            time.sleep(0.01)
+        token.cancel()
+
+    canceller = threading.Thread(target=cancel_during_connect)
+    canceller.start()
     try:
         with pytest.raises(ConnectorError) as raised:
             check_connection(
@@ -1059,10 +1067,11 @@ def test_cancellation_during_connect_waits_for_native_bound_then_stops_before_sq
                 cancellation=token,
             )
     finally:
-        timer.join()
+        canceller.join()
     assert raised.value.code == "cancelled"
     # The foreground call did not return while a hidden connect continued.
-    assert time.monotonic() - started >= 0.035
+    assert connect_started.is_set()
+    assert connect_finished.is_set()
     assert engine.disposed is True
 
 

@@ -28,6 +28,27 @@ VENDOR_SCRIPT_PATH = REPO_ROOT / "packaging" / "vendor_python.sh"
 VENDOR_PY_PATH = REPO_ROOT / "packaging" / "vendor_python.py"
 
 
+def _working_bash() -> str | None:
+    """Return a real Bash executable, excluding Windows' WSL launcher stub."""
+    executable = shutil.which("bash")
+    if executable is None:
+        return None
+    import subprocess
+    try:
+        probe = subprocess.run(
+            [executable, "--version"], capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if probe.returncode != 0 or "GNU bash" not in probe.stdout:
+        return None
+    return executable
+
+
+WORKING_BASH = _working_bash()
+
+
 def test_vendor_python_script_exists_and_is_executable():
     assert VENDOR_SCRIPT_PATH.is_file()
     import os
@@ -37,18 +58,18 @@ def test_vendor_python_script_exists_and_is_executable():
     )
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+@pytest.mark.skipif(WORKING_BASH is None, reason="a working GNU Bash is not installed")
 def test_vendor_python_script_has_valid_bash_syntax():
     import subprocess
     result = subprocess.run(
-        ["bash", "-n", str(VENDOR_SCRIPT_PATH)],
+        [WORKING_BASH or "bash", "-n", str(VENDOR_SCRIPT_PATH)],
         capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stderr
 
 
 @pytest.mark.skipif(
-    shutil.which("bash") is None
+    WORKING_BASH is None
     or (sys.platform == "darwin" and platform.machine() == "arm64"),
     reason=(
         "requires bash on an unsupported host; macOS arm64 is the supported "
@@ -63,7 +84,7 @@ def test_vendor_python_script_refuses_non_macos_arm64():
     ``uv python install`` invocation."""
     import subprocess
     result = subprocess.run(
-        ["bash", str(VENDOR_SCRIPT_PATH)],
+        [WORKING_BASH or "bash", str(VENDOR_SCRIPT_PATH)],
         capture_output=True, text=True, timeout=30,
     )
     assert result.returncode != 0

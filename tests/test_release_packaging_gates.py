@@ -262,13 +262,13 @@ def test_release_finalizer_defaults_to_both_linux_architectures() -> None:
     arguments = module.linux_artifact_arguments(Path("dist"), None)
     assert arguments == [
         "--artifact",
-        "linux,x86_64,dist/Sift-Linux-x86_64.tar.gz,application/gzip",
+        f"linux,x86_64,{Path('dist') / 'Sift-Linux-x86_64.tar.gz'},application/gzip",
         "--artifact",
-        "linux,aarch64,dist/Sift-Linux-aarch64.tar.gz,application/gzip",
+        f"linux,aarch64,{Path('dist') / 'Sift-Linux-aarch64.tar.gz'},application/gzip",
     ]
     assert module.linux_artifact_arguments(Path("dist"), ["aarch64", "aarch64"]) == [
         "--artifact",
-        "linux,aarch64,dist/Sift-Linux-aarch64.tar.gz,application/gzip",
+        f"linux,aarch64,{Path('dist') / 'Sift-Linux-aarch64.tar.gz'},application/gzip",
     ]
 
 

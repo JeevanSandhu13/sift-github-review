@@ -65,6 +65,10 @@ jobs:
         if: matrix.platform == 'linux'
         run: sudo bash packaging/install_linux_qualification_r.sh
 
+      - name: Install macOS database driver libraries
+        if: matrix.platform == 'macos'
+        run: brew install unixodbc
+
       - name: Install Windows installer compiler
         if: matrix.platform == 'windows'
         shell: pwsh

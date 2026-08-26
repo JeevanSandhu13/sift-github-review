@@ -267,11 +267,14 @@ def test_windows_low_level_release_reads_force_binary_mode(
     artifact.write_bytes(b"prefix\x1asuffix")
     binary_flag = 1 << 29
     real_open = release_manifest_module.os.open
+    native_binary_flag = getattr(release_manifest_module.os, "O_BINARY", 0)
     seen_flags: list[int] = []
 
     def capturing_open(path, flags, *args):
         seen_flags.append(flags)
-        return real_open(path, flags & ~binary_flag, *args)
+        # Preserve the real Windows CRT binary flag while substituting a
+        # sentinel that proves the implementation requested O_BINARY.
+        return real_open((path), (flags & ~binary_flag) | native_binary_flag, *args)
 
     monkeypatch.setattr(release_manifest_module.os, "O_BINARY", binary_flag, raising=False)
     monkeypatch.setattr(release_manifest_module.os, "open", capturing_open)

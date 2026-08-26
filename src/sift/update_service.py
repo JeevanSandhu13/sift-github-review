@@ -305,7 +305,16 @@ def _write_verified_download(
     expected_size = int(descriptor["size"])
     if expected_size <= 0 or expected_size > maximum:
         raise UpdateError("signed update size is outside the supported limit")
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    # Low-level Windows descriptors otherwise default to text mode, which
+    # translates LF bytes during ``os.write``. That makes a correctly
+    # downloaded JSON SBOM differ from its signed size and digest when it is
+    # read back in binary mode for the final verification.
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_BINARY", 0)
+    )
     fd = os.open(destination, flags, 0o600)
     digest = hashlib.sha256()
     total = 0

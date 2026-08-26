@@ -88,6 +88,7 @@ def test_run_script_refuses_python_without_interpreter(
         python=None,
         sandbox_exec="/usr/bin/sandbox-exec",
         bwrap="/usr/bin/bwrap",
+        appcontainer_support=True,
     )
     res = executor.run_script(
         "Python", "import sift\nsift.result(type='descriptive')",
@@ -116,6 +117,7 @@ def test_run_script_refuses_python_with_missing_hard_packages(
         ),
         sandbox_exec="/usr/bin/sandbox-exec",
         bwrap="/usr/bin/bwrap",
+        appcontainer_support=True,
     )
     res = executor.run_script(
         "Python", "import sift\nsift.result(type='descriptive')",

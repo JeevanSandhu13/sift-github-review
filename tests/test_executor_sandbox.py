@@ -296,6 +296,7 @@ def test_run_script_refuses_when_sandbox_baseline_fails(
     from sift import env_detect, executor
 
     monkeypatch.setattr(executor.sys, "platform", "darwin")
+    monkeypatch.setattr(executor, "_resource_limited_argv", lambda cmd, *_: cmd)
     monkeypatch.setattr(
         env_detect, "sandbox_baseline_result",
         lambda: (False, "sandbox-exec rejected a minimal allow-default profile (exit 1)."),
@@ -325,6 +326,7 @@ def test_run_script_refuses_when_bwrap_baseline_fails(
     from sift import env_detect, executor
 
     monkeypatch.setattr(executor.sys, "platform", "linux")
+    monkeypatch.setattr(executor, "_resource_limited_argv", lambda cmd, *_: cmd)
     monkeypatch.setattr(
         env_detect, "bwrap_baseline_result",
         lambda: (False, "bwrap rejected a minimal read-only-root profile (exit 1)."),
@@ -354,6 +356,7 @@ def test_run_script_proceeds_past_darwin_baseline_gate_when_healthy(
     from sift import env_detect, executor
 
     monkeypatch.setattr(executor.sys, "platform", "darwin")
+    monkeypatch.setattr(executor, "_resource_limited_argv", lambda cmd, *_: cmd)
     monkeypatch.setattr(
         env_detect, "sandbox_baseline_result", lambda: (True, ""),
     )
@@ -543,6 +546,10 @@ def test_run_script_uses_appcontainer_when_probe_passes(
     assert not r.ok
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="POSIX process-group teardown is qualified on macOS and Linux",
+)
 def test_run_script_kills_process_on_unexpected_communicate_exception() -> None:
     """POSIX-specific regression: an unexpected (non-timeout)
     exception out of ``proc.communicate()`` must still kill the

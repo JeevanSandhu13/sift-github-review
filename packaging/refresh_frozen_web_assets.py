@@ -124,7 +124,10 @@ def refresh(archive: Path, repo_root: Path) -> None:
         else:
             raise ValueError("supported artifacts are .tar.gz and .zip archives")
 
-        with temporary.open("rb") as handle:
+        # Windows rejects ``fsync`` on a read-only CRT descriptor with
+        # EBADF. Open read/write solely for the durability barrier; the
+        # archive has already been closed by its writer above.
+        with temporary.open("r+b") as handle:
             os.fsync(handle.fileno())
         embedded = _embedded_assets(temporary, archive_format)
         _require_exact_members({name: int(name in embedded) for name in ASSET_NAMES})

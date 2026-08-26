@@ -14,7 +14,7 @@ set -euo pipefail
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install --yes \
     build-essential gfortran libcurl4-openssl-dev libssl-dev libxml2-dev \
-    r-base r-cran-lavaan r-cran-lme4 r-cran-marginaleffects r-cran-psych \
+    r-base r-cran-lavaan r-cran-lme4 r-cran-psych \
     r-cran-pscl r-cran-remotes r-cran-survey
 
 Rscript --vanilla - <<'RSCRIPT'
@@ -26,7 +26,8 @@ required <- c(
   did = "2.5.1",
   rdrobust = "4.0.0",
   poLCA = "1.6.0.2",
-  fixest = "0.14.2"
+  fixest = "0.14.2",
+  marginaleffects = "0.32.0"
 )
 for (package in names(required)) {
   installed <- requireNamespace(package, quietly = TRUE)

@@ -169,7 +169,10 @@ class _TransferGuard:
 def _guarded_timeout(timeout_seconds: float, guard: _TransferGuard | None) -> float:
     """Return a positive SDK connect/read timeout within the outer deadline."""
     remaining = guard.deadline.remaining if guard is not None else timeout_seconds
-    return max(0.05, min(60.0, timeout_seconds, remaining))
+    configured = (
+        guard.deadline.timeout_seconds if guard is not None else timeout_seconds
+    )
+    return max(0.05, min(60.0, configured, timeout_seconds, remaining))
 
 
 def _call_with_guard(
