@@ -10,6 +10,7 @@ set -euo pipefail
 # shellcheck disable=SC1091
 . /etc/os-release
 [[ "${ID:-}" == "ubuntu" ]] || { echo "This qualification recipe is pinned for Ubuntu." >&2; exit 1; }
+[[ "${VERSION_CODENAME:-}" == "jammy" ]] || { echo "This qualification recipe is pinned for Ubuntu 22.04 (Jammy)." >&2; exit 1; }
 
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install --yes \
@@ -18,7 +19,13 @@ DEBIAN_FRONTEND=noninteractive apt-get install --yes \
     r-cran-pscl r-cran-remotes r-cran-survey
 
 Rscript --vanilla - <<'RSCRIPT'
-options(repos = c(CRAN = "https://cloud.r-project.org"), timeout = 900)
+# Use a dated Posit Package Manager snapshot so CI receives reproducible,
+# precompiled Ubuntu 22.04 binaries. Compiling the same dependency graph from
+# CRAN source is both slower and liable to exceed a hosted runner's memory.
+options(
+  repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/jammy/2026-08-25"),
+  timeout = 900
+)
 required <- c(
   Rcpp = "1.1.2",
   RcppEigen = "0.3.4.0.2",
@@ -29,15 +36,20 @@ required <- c(
   fixest = "0.14.2",
   marginaleffects = "0.32.0"
 )
-for (package in names(required)) {
-  installed <- requireNamespace(package, quietly = TRUE)
-  current <- if (installed) as.character(packageVersion(package)) else ""
-  if (!identical(current, unname(required[[package]]))) {
-    remotes::install_version(
-      package, version = unname(required[[package]]),
-      repos = getOption("repos"), upgrade = "never", dependencies = NA
-    )
+current_version <- function(package) {
+  if (requireNamespace(package, quietly = TRUE)) {
+    as.character(packageVersion(package))
+  } else {
+    ""
   }
+}
+needed <- names(required)[vapply(
+  names(required),
+  function(package) !identical(current_version(package), unname(required[[package]])),
+  logical(1)
+)]
+if (length(needed)) {
+  install.packages(needed, dependencies = NA)
 }
 for (package in names(required)) {
   stopifnot(requireNamespace(package, quietly = TRUE))
