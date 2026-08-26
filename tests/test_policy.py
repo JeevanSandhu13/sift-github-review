@@ -1,0 +1,357 @@
+"""Tests for the schema-depth policy module.
+
+The policy is the researcher's consent mechanism: a ceiling on what
+schema information Claude can see about each dataset. These tests
+lock in:
+
+- Conservative default behavior when no policy file exists.
+- Round-trip load→save→load.
+- Graceful fallback on malformed / wrong-version / corrupted files
+  (a broken policy file must not lock the researcher out).
+- Correct ceiling comparison in ``depth_allowed``.
+- ``has_explicit_policy`` distinguishes set-by-researcher vs.
+  inherited-from-default.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from sift.policy import (
+    DEFAULT_MAX_DEPTH,
+    FAIL_CLOSED_MAX_DEPTH,
+    FAIL_CLOSED_PRIVACY_PROFILE,
+    VALID_DEPTHS,
+    SiftPolicy,
+    DatasetPolicy,
+    depth_allowed,
+    get_max_depth,
+    has_explicit_policy,
+    load_policy,
+    policy_path,
+    save_policy,
+)
+
+
+# ---------------------------------------------------------------------------
+# Load / default behavior
+# ---------------------------------------------------------------------------
+
+def test_load_missing_file_returns_default(tmp_path: Path):
+    """No policy file → default conservative policy. Never raises."""
+    p = load_policy(tmp_path)
+    assert p.version == 1
+    assert p.default_max_depth == DEFAULT_MAX_DEPTH
+    assert p.datasets == {}
+
+
+def test_load_corrupted_json_fails_closed(tmp_path: Path):
+    """A broken JSON file must not lock the researcher out of Sift,
+    but it must NOT silently expose metadata the researcher had
+    previously restricted. Fail closed: the in-memory default drops
+    to the strictest tier so schema requests are denied until the
+    file is repaired."""
+    policy_path(tmp_path).parent.mkdir()
+    policy_path(tmp_path).write_text("{ this is not valid JSON }")
+    p = load_policy(tmp_path)
+    assert p.default_max_depth == FAIL_CLOSED_MAX_DEPTH
+    assert p.datasets == {}
+
+
+def test_load_unknown_version_fails_closed(tmp_path: Path):
+    """Future versions should have a migration path; until one
+    exists, fail closed rather than misinterpret. A version-skewed
+    file wasn't written for this code path; treating its absent
+    entries as 'no opinion' would silently re-open access the newer
+    version may have tightened."""
+    policy_path(tmp_path).parent.mkdir()
+    policy_path(tmp_path).write_text(
+        json.dumps({"version": 99, "default_max_depth": "names_types_labels"})
+    )
+    p = load_policy(tmp_path)
+    assert p.default_max_depth == FAIL_CLOSED_MAX_DEPTH
+
+
+def test_load_unknown_depth_in_default_fails_closed(tmp_path: Path):
+    """An invalid depth name in the policy file must not be silently
+    upgraded to the rich default — clamp to the strictest tier so a
+    typo can't accidentally widen the ceiling."""
+    policy_path(tmp_path).parent.mkdir()
+    policy_path(tmp_path).write_text(
+        json.dumps({
+            "version": 1,
+            "default_max_depth": "names_types_labels_summary_extra_unreal",
+        })
+    )
+    p = load_policy(tmp_path)
+    assert p.default_max_depth == FAIL_CLOSED_MAX_DEPTH
+
+
+def test_load_unknown_depth_in_per_dataset_fails_closed(tmp_path: Path):
+    """Per-dataset entries with an unknown depth clamp to the
+    strictest tier. The researcher had an explicit opinion (the
+    entry exists) — falling back to the file-wide default could be
+    more permissive than they intended."""
+    policy_path(tmp_path).parent.mkdir()
+    policy_path(tmp_path).write_text(
+        json.dumps({
+            "version": 1,
+            "datasets": {
+                "survey.csv": {"max_depth": "bogus_tier"},
+            },
+        })
+    )
+    p = load_policy(tmp_path)
+    assert p.datasets["survey.csv"].max_depth == FAIL_CLOSED_MAX_DEPTH
+
+
+def test_load_non_dict_root_fails_closed(tmp_path: Path):
+    """A JSON file whose root is a list / string / number is shape-
+    invalid; same fail-closed posture as malformed JSON."""
+    policy_path(tmp_path).parent.mkdir()
+    policy_path(tmp_path).write_text(json.dumps(["not", "a", "dict"]))
+    p = load_policy(tmp_path)
+    assert p.default_max_depth == FAIL_CLOSED_MAX_DEPTH
+
+
+def test_unknown_top_level_policy_key_fails_closed(tmp_path: Path):
+    policy_path(tmp_path).parent.mkdir()
+    policy_path(tmp_path).write_text(json.dumps({
+        "version": 1,
+        "default_max_dept": "names_only",
+    }))
+    assert load_policy(tmp_path).default_max_depth == FAIL_CLOSED_MAX_DEPTH
+
+
+def test_unknown_dataset_policy_key_fails_that_entry_closed(tmp_path: Path):
+    policy_path(tmp_path).parent.mkdir()
+    policy_path(tmp_path).write_text(json.dumps({
+        "version": 1,
+        "datasets": {
+            "survey.csv": {"exportible": False},
+        },
+    }))
+    entry = load_policy(tmp_path).datasets["survey.csv"]
+    assert entry.max_depth == FAIL_CLOSED_MAX_DEPTH
+    assert entry.privacy_profile == FAIL_CLOSED_PRIVACY_PROFILE
+    assert entry.exportable is False
+
+
+def test_malformed_banned_variables_fails_that_entry_closed(tmp_path: Path):
+    policy_path(tmp_path).parent.mkdir()
+    policy_path(tmp_path).write_text(json.dumps({
+        "version": 1,
+        "datasets": {
+            "survey.csv": {"banned_variables": "ssn"},
+        },
+    }))
+    entry = load_policy(tmp_path).datasets["survey.csv"]
+    assert entry.max_depth == FAIL_CLOSED_MAX_DEPTH
+    assert entry.exportable is False
+
+
+def test_load_valid_policy(tmp_path: Path):
+    """A well-formed policy file loads into the expected dataclasses."""
+    policy_path(tmp_path).parent.mkdir()
+    policy_path(tmp_path).write_text(
+        json.dumps({
+            "version": 1,
+            "default_max_depth": "names_types",
+            "datasets": {
+                "survey.csv": {
+                    "max_depth": "names_types_labels",
+                    "set_at": "2026-04-21T14:20:00+00:00",
+                },
+                "demographics.dta": {
+                    "max_depth": "names_types_labels_summary",
+                    "set_at": "2026-04-21T14:25:00+00:00",
+                },
+            },
+        })
+    )
+    p = load_policy(tmp_path)
+    assert p.default_max_depth == "names_types"
+    assert p.datasets["survey.csv"].max_depth == "names_types_labels"
+    assert (
+        p.datasets["demographics.dta"].max_depth
+        == "names_types_labels_summary"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Save + round-trip
+# ---------------------------------------------------------------------------
+
+def test_save_creates_dot_sift_dir(tmp_path: Path):
+    """`.sift/` directory is created on save if it doesn't exist."""
+    policy = SiftPolicy(datasets={
+        "a.csv": DatasetPolicy(max_depth="names_types_labels", set_at="t"),
+    })
+    save_policy(tmp_path, policy)
+    assert policy_path(tmp_path).is_file()
+
+
+def test_round_trip(tmp_path: Path):
+    original = SiftPolicy(
+        default_max_depth="names_types",
+        datasets={
+            "a.csv": DatasetPolicy(
+                max_depth="names_types_labels", set_at="2026-04-21T00:00:00+00:00"
+            ),
+            "b.dta": DatasetPolicy(
+                max_depth="names_types_labels_summary", set_at="2026-04-21T00:01:00+00:00"
+            ),
+        },
+    )
+    save_policy(tmp_path, original)
+    loaded = load_policy(tmp_path)
+    assert loaded.default_max_depth == original.default_max_depth
+    assert loaded.datasets == original.datasets
+
+
+# ---------------------------------------------------------------------------
+# Queries
+# ---------------------------------------------------------------------------
+
+def test_get_max_depth_falls_back_to_default():
+    policy = SiftPolicy(default_max_depth="names_types")
+    assert get_max_depth(policy, "missing.csv") == "names_types"
+
+
+def test_get_max_depth_returns_explicit_when_set():
+    policy = SiftPolicy(
+        default_max_depth="names_types",
+        datasets={"x.csv": DatasetPolicy(max_depth="names_types_labels")},
+    )
+    assert get_max_depth(policy, "x.csv") == "names_types_labels"
+
+
+def test_has_explicit_policy_true_for_set():
+    policy = SiftPolicy(
+        datasets={"x.csv": DatasetPolicy(max_depth="names_types")}
+    )
+    assert has_explicit_policy(policy, "x.csv")
+
+
+def test_has_explicit_policy_false_for_inherited():
+    policy = SiftPolicy()
+    assert not has_explicit_policy(policy, "x.csv")
+
+
+# ---------------------------------------------------------------------------
+# depth_allowed — the ceiling comparison that gates `get_schema`
+# ---------------------------------------------------------------------------
+
+def test_depth_allowed_at_ceiling():
+    assert depth_allowed("names_types_labels", "names_types_labels")
+
+
+def test_depth_allowed_below_ceiling():
+    assert depth_allowed("names_only", "names_types_labels_summary")
+    assert depth_allowed("names_types", "names_types_labels")
+
+
+def test_depth_allowed_above_ceiling():
+    assert not depth_allowed("names_types_labels_summary", "names_types")
+    assert not depth_allowed("names_types_labels", "names_types")
+
+
+def test_depth_allowed_unknown_rejected():
+    """Unknown depth names reject, not silently accept."""
+    assert not depth_allowed("bogus", "names_types_labels")
+    assert not depth_allowed("names_types", "bogus")
+
+
+def test_non_disclosive_for_default_empty():
+    """A dataset with no explicit entry has no opted-in variables."""
+    from sift.policy import non_disclosive_for
+    policy = SiftPolicy()
+    assert non_disclosive_for(policy, "missing.csv") == frozenset()
+
+
+def test_non_disclosive_for_explicit_set():
+    """When a dataset's policy lists ``non_disclosive_variables``,
+    the helper returns them as a frozenset for direct membership
+    checks."""
+    from sift.policy import non_disclosive_for
+    policy = SiftPolicy(datasets={
+        "study.csv": DatasetPolicy(
+            max_depth="names_types_labels",
+            non_disclosive_variables=("age", "year_of_birth"),
+        ),
+    })
+    assert non_disclosive_for(policy, "study.csv") == frozenset(
+        {"age", "year_of_birth"}
+    )
+    # Other datasets still have empty opt-in.
+    assert non_disclosive_for(policy, "salary.csv") == frozenset()
+
+
+def test_round_trip_with_non_disclosive_variables(tmp_path: Path):
+    """Persist + load round-trips the per-variable opt-in list."""
+    original = SiftPolicy(datasets={
+        "study.csv": DatasetPolicy(
+            max_depth="names_types_labels",
+            set_at="2026-04-29T00:00:00+00:00",
+            non_disclosive_variables=("age", "education_years"),
+        ),
+    })
+    save_policy(tmp_path, original)
+    loaded = load_policy(tmp_path)
+    assert loaded.datasets["study.csv"].non_disclosive_variables == (
+        "age", "education_years"
+    )
+
+
+def test_save_omits_empty_non_disclosive_variables(tmp_path: Path):
+    """When the opt-in list is empty (the default), don't write
+    the field. Keeps the policy file tidy for datasets that don't
+    use the feature."""
+    import json
+    policy = SiftPolicy(datasets={
+        "a.csv": DatasetPolicy(max_depth="names_types_labels", set_at="t"),
+    })
+    save_policy(tmp_path, policy)
+    raw = json.loads(policy_path(tmp_path).read_text(encoding="utf-8"))
+    assert "non_disclosive_variables" not in raw["datasets"]["a.csv"]
+
+
+def test_load_tolerates_malformed_non_disclosive_variables(tmp_path: Path):
+    """A malformed entry (string instead of list, mixed types)
+    falls back to empty rather than raising."""
+    import json
+    policy_path(tmp_path).parent.mkdir(parents=True, exist_ok=True)
+    policy_path(tmp_path).write_text(json.dumps({
+        "version": 1,
+        "default_max_depth": "names_types",
+        "datasets": {
+            "a.csv": {
+                "max_depth": "names_types_labels",
+                "non_disclosive_variables": "not_a_list",
+            },
+            "b.csv": {
+                "max_depth": "names_types_labels",
+                "non_disclosive_variables": ["age", 42, "", None, "year"],
+            },
+        },
+    }))
+    policy = load_policy(tmp_path)
+    assert policy.datasets["a.csv"].non_disclosive_variables == ()
+    # Non-string / empty entries are filtered out; valid strings remain.
+    assert policy.datasets["b.csv"].non_disclosive_variables == ("age", "year")
+
+
+def test_all_valid_depths_orderable():
+    """Every depth in VALID_DEPTHS must compare correctly against
+    every other. Lock in the total ordering."""
+    for i, lower in enumerate(VALID_DEPTHS):
+        for j, upper in enumerate(VALID_DEPTHS):
+            if i <= j:
+                assert depth_allowed(lower, upper), (
+                    f"{lower!r} should be allowed under ceiling {upper!r}"
+                )
+            else:
+                assert not depth_allowed(lower, upper), (
+                    f"{lower!r} should NOT be allowed under ceiling {upper!r}"
+                )

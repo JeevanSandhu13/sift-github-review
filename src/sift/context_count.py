@@ -1,0 +1,351 @@
+"""Pre-flight context counter for the chip.
+
+The chip used to mix four signals at once — provider-reported usage
+from ``turn_done``, cache fields, ``post_turn_tokens``, and a
+chars/4 estimate of pending messages — which produced visible
+fluctuation that didn't correspond to any single useful question.
+
+This module collapses that to one definition: **the assembled size
+of the next request, measured the same way for every chip update.**
+The bridge calls ``count_next_context`` on a small, well-defined set
+of triggers (session open, rewind success, turn complete, attachment
+add/remove); the JS chip only refreshes when the backend returns. No
+intermediate estimates flicker through the UI.
+
+Accuracy tier (``exact`` field on the response):
+- OpenAI: planned to use ``tiktoken`` (local, exact). Today this
+  module returns a chars/3.5 approximation for both providers; the
+  exact path lands in a follow-up that adds the dep.
+- Anthropic: no public local tokenizer matches server-side counting.
+  When ``ANTHROPIC_API_KEY`` is set we'll route to
+  ``messages/count_tokens`` (exact, costs an API call). Today: same
+  chars/3.5 approximation. The chip text itself stays clean — no
+  ``~`` prefix even when ``exact=False`` — because today every
+  render is approximate, so a permanent prefix conveys no signal.
+  The tooltip spells out that the value is approximate; once exact
+  tokenization lands the tooltip wording switches and the chip text
+  stays the same.
+"""
+
+from __future__ import annotations
+
+import json
+import threading
+from collections import OrderedDict
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+
+# Fields the bridge enriches into ``tool_result`` records for UI
+# replay (raw stdout/stderr captures, base64 plot thumbnails, plot
+# diagnostic strings) but that NEVER ride into the next provider
+# request. Stripping them at counting time gives the chip a
+# realistic estimate of next-turn size — without this, plot- and
+# script-heavy sessions overcounted dramatically because a single
+# tool_result line could be 1-2 MB of base64 plot data the model
+# will never see.
+_HISTORY_UI_ONLY_FIELDS: frozenset[str] = frozenset({
+    "raw_stdout",
+    "raw_stderr",
+    "plots",
+    "plot_diagnostic",
+    # ``images`` on a ``user_message`` is the persisted base64 blob
+    # for each composer-attached image, kept so a reload still
+    # renders the evidence the researcher sent. The image bytes
+    # rode into the request via the provider's images channel (not
+    # the text body), so they shouldn't count toward the next
+    # turn's text-side chip pressure.
+    "images",
+})
+
+
+@dataclass(frozen=True)
+class _HistoryCharCacheEntry:
+    device: int
+    inode: int
+    size: int
+    mtime_ns: int
+    total: int
+    tail: bytes
+
+
+_HISTORY_CHAR_CACHE_MAX = 64
+_HISTORY_CHAR_CACHE: "OrderedDict[Path, _HistoryCharCacheEntry]" = OrderedDict()
+_HISTORY_CHAR_CACHE_LOCK = threading.RLock()
+_HISTORY_TAIL_BYTES = 128
+
+
+def _count_history_lines(lines: Any) -> int:
+    """Count model-facing characters from an iterable of text lines."""
+    total = 0
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            total += len(line) + 1
+            continue
+        if not isinstance(rec, dict):
+            total += len(line) + 1
+            continue
+        if not any(k in rec for k in _HISTORY_UI_ONLY_FIELDS):
+            total += len(line) + 1
+            continue
+        stripped = {
+            k: v for k, v in rec.items()
+            if k not in _HISTORY_UI_ONLY_FIELDS
+        }
+        total += len(json.dumps(stripped, ensure_ascii=False)) + 1
+    return total
+
+
+def _cache_history_count(path: Path, stat: Any, total: int) -> None:
+    try:
+        with path.open("rb") as f:
+            start = max(0, stat.st_size - _HISTORY_TAIL_BYTES)
+            f.seek(start)
+            tail = f.read(stat.st_size - start)
+    except OSError:
+        return
+    entry = _HistoryCharCacheEntry(
+        device=stat.st_dev,
+        inode=stat.st_ino,
+        size=stat.st_size,
+        mtime_ns=stat.st_mtime_ns,
+        total=total,
+        tail=tail,
+    )
+    with _HISTORY_CHAR_CACHE_LOCK:
+        _HISTORY_CHAR_CACHE[path] = entry
+        _HISTORY_CHAR_CACHE.move_to_end(path)
+        while len(_HISTORY_CHAR_CACHE) > _HISTORY_CHAR_CACHE_MAX:
+            _HISTORY_CHAR_CACHE.popitem(last=False)
+
+
+def _clear_history_char_cache() -> None:
+    """Clear the projection cache (test/session lifecycle hook)."""
+    with _HISTORY_CHAR_CACHE_LOCK:
+        _HISTORY_CHAR_CACHE.clear()
+
+
+def _model_facing_history_chars(history_path: Path) -> int:
+    """Sum the bytes of the persisted chat log MINUS UI-only fields.
+
+    The persisted ``chat_history.jsonl`` mixes model-facing record
+    bodies (``user_message`` text, ``assistant_text``, ``tool_call``
+    args, sanitized ``tool_result`` payloads) with UI-only
+    enrichments (full raw stdout/stderr captures, base64 plot
+    thumbnails). The model never sees the UI-only fields, but
+    ``stat()`` on the file counts them — the chip's denominator
+    pressure (raw bytes / chars-per-token) was therefore badly
+    inflated on plot-heavy or script-heavy sessions.
+
+    The first read streams JSON one line at a time. Later reads are
+    O(1) when the file is unchanged and parse only newly appended
+    records when it grew. A small tail check distinguishes a genuine
+    append from a same-inode rewrite/rewind before reusing the prefix.
+    The bounded process cache prevents long sessions from turning
+    every context-chip refresh into another 100-MB scan.
+    """
+    try:
+        stat = history_path.stat()
+    except OSError:
+        return 0
+    key = history_path.absolute()
+    with _HISTORY_CHAR_CACHE_LOCK:
+        cached = _HISTORY_CHAR_CACHE.get(key)
+        if cached is not None:
+            _HISTORY_CHAR_CACHE.move_to_end(key)
+    if cached is not None:
+        same_file = (
+            cached.device == stat.st_dev and cached.inode == stat.st_ino
+        )
+        if (same_file and cached.size == stat.st_size
+                and cached.mtime_ns == stat.st_mtime_ns):
+            return cached.total
+        if same_file and stat.st_size > cached.size:
+            # Confirm the old EOF still contains the bytes we counted.
+            # A rewind followed by a larger rewrite can preserve inode and
+            # exceed the old size; treating it as append would double-count.
+            old_tail = b""
+            try:
+                with history_path.open("rb") as f:
+                    tail_start = max(0, cached.size - len(cached.tail))
+                    f.seek(tail_start)
+                    old_tail = f.read(cached.size - tail_start)
+                    if old_tail == cached.tail:
+                        f.seek(cached.size)
+                        added = f.read(stat.st_size - cached.size)
+                    else:
+                        added = b""
+            except OSError:
+                added = b""
+            if old_tail == cached.tail and added:
+                text = added.decode("utf-8", errors="replace")
+                total = cached.total + _count_history_lines(text.splitlines())
+                _cache_history_count(key, stat, total)
+                return total
+
+    total = 0
+    try:
+        with history_path.open("r", encoding="utf-8") as f:
+            total = _count_history_lines(f)
+    except (OSError, UnicodeError):
+        return 0
+    try:
+        final_stat = history_path.stat()
+    except OSError:
+        return total
+    _cache_history_count(key, final_stat, total)
+    return total
+
+
+# Average characters per token for English-leaning prose with code
+# mixed in. 3.5 sits BELOW Claude's empirical 3.6-3.8 (per Anthropic's
+# published rule of thumb) and the chars/4 figure the OpenAI docs
+# cite. The smaller divisor over-estimates tokens — and an over-
+# estimate of tokens is a CONSERVATIVE chip reading: the chip looks
+# fuller than reality, so the researcher gets warned about a packed
+# context BEFORE they hit the wall, rather than discovering a
+# "context too long" error mid-turn. Replaced by exact tokenization
+# once the tiktoken / count_tokens paths land.
+_CHARS_PER_TOKEN_FALLBACK = 3.5
+
+# Each image submitted as a vision content block costs roughly this
+# many tokens at the providers' standard resolutions. A more precise
+# accounting depends on the image's pixel dimensions; this constant
+# is a safe over-estimate for the typical Stata / R plot.
+_IMAGE_TOKEN_ESTIMATE = 1500
+
+
+@dataclass
+class ContextCount:
+    """Result of one pre-flight count.
+
+    ``tokens``: integer count for the chip's numerator.
+    ``exact``: True when the count came from a provider-matching
+       tokenizer (tiktoken for OpenAI, Anthropic's count_tokens for
+       Claude); False for the chars/3.5 approximation. The chip
+       text itself does NOT prefix ``~``; the approximate-vs-exact
+       distinction is surfaced in the tooltip instead (see
+       ``renderContextChip`` in ``app.js``). A leading ``~`` on
+       every render — when every render today is approximate —
+       conveys no information and reads as noise; the tooltip
+       carries the honesty caveat where the researcher can find
+       it.
+    ``ceiling``: model context window in tokens — the chip's
+       denominator. Sourced from the model registry, not derived
+       here, so this struct stays decoupled from per-provider model
+       metadata.
+    ``request_id``: monotonic id passed through from the caller so
+       JS can reject stale responses landing after a newer request.
+    """
+    tokens: int
+    exact: bool
+    ceiling: int
+    request_id: int
+
+
+def count_next_context(
+    cwd: Path | None,
+    *,
+    ceiling: int,
+    draft_text: str = "",
+    n_images: int = 0,
+    n_pending_attachments: int = 0,
+    pending_attachment_chars: int = 0,
+    system_prompt_chars: int = 0,
+    tool_schema_chars: int = 0,
+    request_id: int = 0,
+) -> ContextCount:
+    """Count the size of the next request the bridge would assemble.
+
+    Inputs cover every contributor the chip needs to reflect:
+
+    - ``cwd``: location of ``.sift/chat_history.jsonl``. The full
+      file's text bytes are summed — this is the conversation chain
+      that re-rides on every turn (Anthropic) or that the warm-start
+      prefix re-injects on session resume.
+    - ``draft_text``: composer contents the next send would carry.
+      Pass ``""`` when the chip is being recounted between turns
+      (no in-flight draft).
+    - ``n_images``: count of pending image attachments — counted via
+      ``_IMAGE_TOKEN_ESTIMATE`` since chars-based math doesn't apply.
+    - ``n_pending_attachments``: pending script attachment count. A
+      small per-attachment kicker covers the framing the bridge
+      wraps each one in (header + fence). Their *content* bytes
+      ride separately in ``pending_attachment_chars`` because the
+      chip needs to reflect a 90 KB ``.do`` file the moment the
+      researcher attaches it, not only after the next turn commits.
+    - ``pending_attachment_chars``: summed length of inlined script
+      content the next turn will prepend (post per-file truncation
+      and aggregate cap). Caller computes this against the runner's
+      staging list so the count matches what
+      ``_build_script_attachment_prefix`` will actually emit.
+    - ``system_prompt_chars`` / ``tool_schema_chars``: caller passes
+      lengths of the assembled system prompt and tool schemas (both
+      provider-specific). Caller does this to avoid this module
+      having to import provider modules and ride a circular-import
+      risk.
+
+    Returns ``ContextCount`` with ``exact=False`` until the
+    tiktoken / count_tokens paths land. Callers branch on ``exact``
+    to choose the chip's tooltip wording (exact: ``"N tokens"``;
+    approximate: ``"N tokens · local estimate, expect a small gap
+    from the provider's billed count"``); the chip text itself
+    stays prefix-free.
+    """
+    history_chars = 0
+    if cwd is not None:
+        history_path = cwd / ".sift" / "chat_history.jsonl"
+        # Project to model-facing fields only. The persisted log
+        # carries raw stdout/stderr captures and base64 plot
+        # thumbnails for UI replay; those never ride into the next
+        # provider request, so a stat() of the whole file would
+        # overcount badly on plot- or script-heavy sessions.
+        history_chars = _model_facing_history_chars(history_path)
+
+    # Draft attachments aren't in history yet. Two contributions:
+    #   - per-file kicker for the header / fence framing the bridge
+    #     wraps each attachment in, so the chip moves the moment a
+    #     file is attached even if its bytes are tiny;
+    #   - the actual inlined content bytes (post-truncation, post-
+    #     aggregate-cap) so a 90 KB ``.do`` file shifts the chip
+    #     proportionally instead of looking like a 200-char nudge.
+    # Real bytes also ride in once the turn commits and the next
+    # recount picks them up from the history file — at that point
+    # the runner's staging list is empty and these contributions
+    # drop out.
+    attachment_kicker_chars = (
+        n_pending_attachments * 200 + pending_attachment_chars
+    )
+
+    total_chars = (
+        system_prompt_chars
+        + tool_schema_chars
+        + history_chars
+        + len(draft_text)
+        + attachment_kicker_chars
+    )
+    text_tokens = int(total_chars / _CHARS_PER_TOKEN_FALLBACK)
+    image_tokens = n_images * _IMAGE_TOKEN_ESTIMATE
+    return ContextCount(
+        tokens=text_tokens + image_tokens,
+        exact=False,
+        ceiling=ceiling,
+        request_id=request_id,
+    )
+
+
+def to_payload(count: ContextCount) -> dict[str, Any]:
+    """Serialize for the JS bridge response. Keep field names stable
+    — JS reads them directly into the chip render path."""
+    return {
+        "tokens": count.tokens,
+        "exact": count.exact,
+        "ceiling": count.ceiling,
+        "request_id": count.request_id,
+    }

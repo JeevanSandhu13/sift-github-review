@@ -1,0 +1,1290 @@
+"""Lifecycle tests for the multi-runner :class:`SiftBridge`.
+
+The bridge holds a ``dict[str, SessionRunner]`` keyed by cwd. Each
+runner owns its own provider session, lock, and turn task. Switching
+the visible session is a pure UI focus change — it does NOT close any
+runner. These tests pin the contract so a future "helpfully tear down
+on switch" regression gets caught.
+
+Persistence is keyed by event ``session_cwd`` (falling back to the
+bridge focus), so a turn streaming in session A persists to A's log
+even while the UI is showing B.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+
+from sift.chat_history import build_context_prefix
+from sift.runner import SessionRunner
+from sift.ui import SiftBridge
+
+
+# ---------------------------------------------------------------------------
+# Construction / initial state
+# ---------------------------------------------------------------------------
+
+def test_bridge_starts_with_no_runners(tmp_path: Path):
+    """A freshly-constructed bridge with a cwd has exactly one
+    lazy-created runner for that cwd; ``needs_context_prefix`` on
+    that runner is True (set by the constructor since the cwd was
+    handed in eagerly)."""
+    bridge = SiftBridge(cwd=tmp_path)
+    runner = bridge._active_runner()
+    assert runner is not None, "constructor with cwd should create a runner"
+    assert runner.cwd == tmp_path.resolve()
+    # The runner's own session is opened lazily on first send.
+    assert runner._session is None
+
+
+def test_bridge_without_cwd_has_no_runners():
+    """Without a cwd (landing screen), no runners exist yet. The
+    first focus event lazy-creates one."""
+    bridge = SiftBridge(cwd=None)
+    assert bridge._active_runner() is None
+    assert bridge._runners == {}
+
+
+# ---------------------------------------------------------------------------
+# Staging cleanup — partial-session orphans
+# ---------------------------------------------------------------------------
+#
+# The fresh session dir is created BEFORE files are copied. If a copy
+# raises mid-way, an unguarded path leaves the dir (with whatever was
+# already copied) under ~/.sift-sessions/, where the global session
+# listing later surfaces it as if it were a real session. The all-
+# or-nothing contract requires tearing the dir down on any failure.
+
+
+def test_stage_session_removes_dir_on_copy_failure(
+    tmp_path: Path, monkeypatch,
+):
+    """A mid-staging OSError must remove the freshly-created session
+    dir AND any files already copied into it."""
+    import sift.ui as ui_mod
+    from sift.secure_file import copy_regular_no_follow as real_copy
+
+    bridge = SiftBridge.__new__(SiftBridge)
+    bridge._set_cwd = lambda p: {"ok": True, "state": "ready"}
+
+    session_dir = tmp_path / "session_under_test"
+    session_dir.mkdir()
+    monkeypatch.setattr(ui_mod, "_new_session_dir", lambda: session_dir)
+
+    call_count = {"n": 0}
+
+    def flaky_copy(src, dst, **kw):
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            raise OSError("simulated disk full")
+        return real_copy(src, dst, **kw)
+
+    monkeypatch.setattr("sift.secure_file.copy_regular_no_follow", flaky_copy)
+
+    src_a = tmp_path / "a.csv"
+    src_a.write_text("a")
+    src_b = tmp_path / "b.csv"
+    src_b.write_text("b")
+
+    result = bridge._stage_session([str(src_a), str(src_b)])
+    assert result["ok"] is False
+    assert "copy failed" in result["reason"]
+    # Cleanup invariant: the dir is gone, including the partial
+    # first-file copy.
+    assert not session_dir.exists()
+
+
+def test_stage_session_from_blobs_removes_dir_on_write_failure(
+    tmp_path: Path, monkeypatch,
+):
+    """Same all-or-nothing contract for the drag-drop path."""
+    import sift.ui as ui_mod
+
+    bridge = SiftBridge.__new__(SiftBridge)
+    bridge._set_cwd = lambda p: {"ok": True, "state": "ready"}
+
+    session_dir = tmp_path / "session_blobs"
+    session_dir.mkdir()
+    monkeypatch.setattr(ui_mod, "_new_session_dir", lambda: session_dir)
+
+    # Patch the crash-safe writer to fail on the second call.
+    from sift import reliability
+    real_atomic_write = reliability.atomic_write_bytes
+    call_count = {"n": 0}
+
+    def flaky_write(path, data, **kwargs):
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            raise OSError("simulated disk full")
+        return real_atomic_write(path, data, **kwargs)
+
+    monkeypatch.setattr(reliability, "atomic_write_bytes", flaky_write)
+
+    result = bridge._stage_session_from_blobs([
+        ("a.csv", b"a"),
+        ("b.csv", b"b"),
+    ])
+    assert result["ok"] is False
+    assert not session_dir.exists()
+
+
+# ---------------------------------------------------------------------------
+# _persist_event — routes by event session_cwd, falls back to bridge focus
+# ---------------------------------------------------------------------------
+
+def test_persist_event_adds_iso_timestamp(tmp_path: Path):
+    """Persisted events get stamped with a UTC ISO timestamp so the
+    Turn reader can order them and the session_state file can show
+    'last active' times."""
+    bridge = SiftBridge(cwd=tmp_path)
+    bridge._persist_event({"type": "user_message", "text": "hello"})
+
+    log = tmp_path / ".sift" / "chat_history.jsonl"
+    assert log.exists()
+    rec = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
+    assert "timestamp" in rec
+    from datetime import datetime
+    parsed = datetime.fromisoformat(rec["timestamp"])
+    assert parsed.tzinfo is not None, "timestamp must carry timezone info"
+
+
+def test_persist_event_skips_non_persist_types(tmp_path: Path):
+    """Lifecycle events (``ready``, ``auth_failure``, …) must not
+    pollute the chat log — replay would reconstruct phantom turns
+    or surface stale auth banners."""
+    bridge = SiftBridge(cwd=tmp_path)
+    bridge._persist_event({"type": "ready"})
+    bridge._persist_event({"type": "auth_failure", "reason": "stale token"})
+
+    log = tmp_path / ".sift" / "chat_history.jsonl"
+    assert not log.exists()
+
+
+def test_persist_event_keeps_turn_done_for_diagnostics(tmp_path: Path):
+    """``turn_done`` carries the per-turn token usage (input, output,
+    cache_read, cache_creation, cost) and is persisted so post-hoc
+    inspection of cache hit rate / cost trends is possible. The
+    transcript readers (``read_turns``, ``replayEvent``) ignore
+    unknown event types, so persisting it does not introduce phantom
+    turns."""
+    bridge = SiftBridge(cwd=tmp_path)
+    bridge._persist_event({
+        "type": "turn_done",
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+    })
+
+    log = tmp_path / ".sift" / "chat_history.jsonl"
+    assert log.exists()
+    rec = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
+    assert rec["type"] == "turn_done"
+    assert rec["input_tokens"] == 100
+
+
+def test_persist_event_preserves_caller_timestamp(tmp_path: Path):
+    """If the caller already supplied a timestamp (replay, import
+    from external log), we don't overwrite it."""
+    bridge = SiftBridge(cwd=tmp_path)
+    bridge._persist_event({
+        "type": "user_message",
+        "text": "x",
+        "timestamp": "2024-01-01T00:00:00+00:00",
+    })
+    rec = json.loads(
+        (tmp_path / ".sift" / "chat_history.jsonl").read_text(encoding="utf-8").splitlines()[0]
+    )
+    assert rec["timestamp"] == "2024-01-01T00:00:00+00:00"
+
+
+def test_persist_event_routes_by_session_cwd(tmp_path: Path):
+    """An event carrying ``session_cwd`` lands in THAT session's
+    log, not the bridge-focused one. This is the rule that makes
+    background sessions safe: a runner whose turn is mid-stream
+    persists to ITS cwd even when the UI is focused elsewhere."""
+    a = tmp_path / "a"
+    b = tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+
+    # Bridge focused on A, but the event carries B's cwd — should
+    # land in B's log, not A's.
+    bridge = SiftBridge(cwd=a)
+    bridge._persist_event({
+        "type": "user_message",
+        "text": "from B's runner",
+        "session_cwd": str(b),
+    })
+
+    a_log = a / ".sift" / "chat_history.jsonl"
+    b_log = b / ".sift" / "chat_history.jsonl"
+    assert not a_log.exists(), "A's log must be untouched"
+    assert b_log.exists(), "B's log must receive the event"
+    rec = json.loads(b_log.read_text(encoding="utf-8").splitlines()[0])
+    # session_cwd is a routing annotation — stripped before write.
+    assert "session_cwd" not in rec
+    assert rec["text"] == "from B's runner"
+
+
+def test_persist_event_falls_back_to_bridge_focus(tmp_path: Path):
+    """Events without ``session_cwd`` (legacy / direct test calls)
+    persist to the bridge's focused cwd."""
+    bridge = SiftBridge(cwd=tmp_path)
+    bridge._persist_event({"type": "user_message", "text": "hi"})
+    log = tmp_path / ".sift" / "chat_history.jsonl"
+    assert log.exists()
+
+
+def test_record_user_message_replaces_trailing_orphan_turn(tmp_path: Path):
+    """A failed send can leave a lone persisted ``user_message`` at
+    the tail. The next real send replaces that stale attempt."""
+    bridge = SiftBridge(cwd=tmp_path)
+    runner = bridge._active_runner()
+    assert runner is not None
+    bridge._persist_event({
+        "type": "user_message",
+        "text": "stuck send",
+        "session_cwd": str(runner.cwd),
+    })
+
+    bridge._record_user_message(runner, "retry")
+
+    log = tmp_path / ".sift" / "chat_history.jsonl"
+    rows = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert [row["text"] for row in rows if row.get("type") == "user_message"] == [
+        "retry"
+    ]
+
+
+def test_record_user_message_keeps_completed_prior_turn(tmp_path: Path):
+    """Only orphaned tail user turns are disposable. A completed turn
+    with an assistant reply must stay in the log."""
+    bridge = SiftBridge(cwd=tmp_path)
+    runner = bridge._active_runner()
+    assert runner is not None
+    bridge._persist_event({
+        "type": "user_message",
+        "text": "first",
+        "session_cwd": str(runner.cwd),
+    })
+    bridge._persist_event({
+        "type": "assistant_text",
+        "text": "reply",
+        "session_cwd": str(runner.cwd),
+    })
+
+    bridge._record_user_message(runner, "second")
+
+    log = tmp_path / ".sift" / "chat_history.jsonl"
+    rows = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert [row["type"] for row in rows] == [
+        "user_message",
+        "assistant_text",
+        "user_message",
+    ]
+    assert [row["text"] for row in rows if row["type"] == "user_message"] == [
+        "first",
+        "second",
+    ]
+
+
+# ---------------------------------------------------------------------------
+# switch_session — DOES NOT close any runner (the multi-session fix)
+# ---------------------------------------------------------------------------
+
+def test_runner_close_clears_pending_close_flag(tmp_path: Path) -> None:
+    """``mark_close_after_turn`` arms the flag; ``close`` is the
+    chokepoint that clears it. A future direct ``close`` (e.g., a
+    model swap that tears down the session) MUST drop the flag too,
+    otherwise the next time the runner is reopened and bound to a
+    NEW session, ``run_turn``'s finally block would still see
+    ``_pending_close = True`` and close the freshly opened session
+    after one turn — a memory-leak-of-state bug.
+    """
+    runner = SessionRunner(
+        cwd=tmp_path, provider="openai", model="gpt-x",
+    )
+    # Pretend a session exists so ``mark_close_after_turn`` arms.
+    runner._session = MagicMock()
+    runner.mark_close_after_turn()
+    assert runner._pending_close is True
+    asyncio.run(runner.close())
+    assert runner._pending_close is False, (
+        "close must clear pending_close so a future reopen doesn't "
+        "inherit a stale flag"
+    )
+
+
+def test_runner_mark_close_noop_without_session(tmp_path: Path) -> None:
+    """``mark_close_after_turn`` on a runner that never opened a
+    session is a no-op: there's nothing to close, and arming the
+    flag would cause the FIRST turn after a future open to
+    immediately close — exactly wrong for the typical "user added
+    a key, deleted it, then added it again" flow.
+    """
+    runner = SessionRunner(
+        cwd=tmp_path, provider="openai", model="gpt-x",
+    )
+    assert runner._session is None
+    runner.mark_close_after_turn()
+    assert runner._pending_close is False
+
+
+def test_turn_error_carries_context_reset_flag() -> None:
+    """SDC + continuity closure: ``TurnError.context_reset`` defaults
+    to False (preserving the prior single-arg call sites) and gets
+    set to True only when the provider's server-side memory has
+    been lost. The OpenAI provider sets it on
+    ``previous_response_id`` expiry. The runner reads it in the
+    failure-restoration branch and re-arms ``needs_context_prefix``
+    so the next turn re-injects the warm-start context — without
+    this flag, an established session that hits chain expiry would
+    silently start fresh with no recoverable context.
+    """
+    from sift.provider.base import TurnError
+    plain = TurnError(message="generic failure")
+    assert plain.context_reset is False
+    reset = TurnError(
+        message="chain expired", context_reset=True,
+    )
+    assert reset.context_reset is True
+
+
+def test_delete_credential_closes_idle_and_marks_busy_runner_for_close(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """SDC + credential-hygiene closure: deleting an API key while a
+    runner of that provider is mid-turn must NOT leak the deleted
+    credential into subsequent sends.
+
+    Mechanism. Both provider SDKs (``AsyncOpenAI``,
+    ``AsyncAnthropic``) capture ``api_key`` at client construction
+    and reuse it until the client is closed. If
+    ``delete_credential`` skipped busy runners entirely, the cached
+    client would happily keep authenticating with the now-deleted
+    key for every subsequent send in the same process.
+
+    The fix: idle runners are closed immediately (as before), but
+    busy runners are marked for close-after-turn via
+    ``mark_close_after_turn``. The next turn's finally block honours
+    the flag and closes the session, evicting the cached client.
+    The send after that opens a fresh session, which fails cleanly
+    at ``_resolve_api_key`` (no key left in keychain).
+
+    This test exercises the bridge-side dispatch — that idle and
+    busy runners are routed to the right path. The runner-side
+    contract (the flag actually closes after the turn finishes) is
+    pinned by ``test_runner_lifecycle.test_pending_close_runs_after_turn``.
+    """
+    a = tmp_path / "a"
+    b = tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+
+    import sift.ui as ui_mod
+    real_root = ui_mod.SESSIONS_ROOT
+    ui_mod.SESSIONS_ROOT = tmp_path
+    try:
+        bridge = SiftBridge(cwd=a)
+        idle_runner = bridge._active_runner()
+        assert idle_runner is not None
+        idle_runner.provider = "openai"
+        idle_runner._session = MagicMock()
+        # Switch focus to B to lazy-create a second runner. Both
+        # runners are on the OpenAI provider for this test.
+        bridge.switch_session(str(b))
+        busy_runner = bridge._active_runner()
+        assert busy_runner is not None
+        assert busy_runner is not idle_runner
+        busy_runner.provider = "openai"
+        busy_runner._session = MagicMock()
+        # busy_runner is_busy() returns True; idle_runner stays idle.
+        monkeypatch.setattr(busy_runner, "is_busy", lambda: True)
+        monkeypatch.setattr(idle_runner, "is_busy", lambda: False)
+
+        # Patch the auth call so we don't touch the real keychain;
+        # match the success shape ``delete_credential`` expects.
+        import sift.auth as _auth
+        monkeypatch.setattr(
+            _auth, "delete_credential",
+            lambda provider: {"ok": True, "provider": provider},
+        )
+
+        # Track close + mark_close calls on each runner.
+        idle_close_calls: list[bool] = []
+        busy_close_calls: list[bool] = []
+        busy_mark_calls: list[bool] = []
+
+        async def _idle_close():
+            idle_close_calls.append(True)
+        async def _busy_close():
+            busy_close_calls.append(True)
+        monkeypatch.setattr(idle_runner, "close", _idle_close)
+        monkeypatch.setattr(busy_runner, "close", _busy_close)
+        monkeypatch.setattr(
+            busy_runner, "mark_close_after_turn",
+            lambda: busy_mark_calls.append(True),
+        )
+        # Also stub _run_on_loop so the test doesn't need an event
+        # loop. The schedulers it would invoke are already covered
+        # by their own tests; here we only care that the bridge
+        # picked the right path per runner.
+        monkeypatch.setattr(
+            bridge, "_run_on_loop", lambda coro: asyncio.run(coro),
+        )
+
+        result = bridge.delete_credential("openai")
+        assert result["ok"] is True
+
+        # Idle runner: close ran.
+        assert idle_close_calls == [True]
+        # Busy runner: NOT closed mid-turn, but marked for close-
+        # after-turn so the in-flight stream finishes naturally and
+        # the cached client gets evicted before the next send.
+        assert busy_close_calls == []
+        assert busy_mark_calls == [True]
+    finally:
+        ui_mod.SESSIONS_ROOT = real_root
+
+
+def test_switch_session_does_not_close_other_runners(tmp_path: Path):
+    """The bug we fixed: switching focus used to tear down the
+    previous session's SDK client mid-stream. The new contract:
+    switching is a pure UI focus change. Both runners' sessions
+    stay alive so a turn in flight in A keeps streaming after the
+    user clicks B in the sidebar."""
+    a = tmp_path / "a"
+    b = tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+
+    # Force both runners under ~/.sift-sessions/ — switch_session
+    # refuses paths outside SESSIONS_ROOT for safety.
+    import sift.ui as ui_mod
+    real_root = ui_mod.SESSIONS_ROOT
+    ui_mod.SESSIONS_ROOT = tmp_path
+    try:
+        bridge = SiftBridge(cwd=a)
+        runner_a = bridge._active_runner()
+        assert runner_a is not None
+        # Pretend A has an open session.
+        runner_a._session = MagicMock()
+        sentinel_a = runner_a._session
+
+        # Switch focus to B.
+        bridge.switch_session(str(b))
+
+        assert bridge.cwd == b.resolve()
+        # A's session is UNTOUCHED — that's the fix.
+        assert runner_a._session is sentinel_a, (
+            "switching focus must NOT close runner A's session"
+        )
+        # B has its own runner with no session yet.
+        runner_b = bridge._active_runner()
+        assert runner_b is not None
+        assert runner_b is not runner_a
+        assert runner_b._session is None
+    finally:
+        ui_mod.SESSIONS_ROOT = real_root
+
+
+def test_switch_session_returns_to_existing_runner(tmp_path: Path):
+    """Re-focusing a session you've visited before returns the
+    SAME runner (not a new one). Memory, model preference, and any
+    open SDK client all carry over."""
+    a = tmp_path / "a"
+    b = tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+
+    import sift.ui as ui_mod
+    real_root = ui_mod.SESSIONS_ROOT
+    ui_mod.SESSIONS_ROOT = tmp_path
+    try:
+        bridge = SiftBridge(cwd=a)
+        runner_a_first = bridge._active_runner()
+
+        bridge.switch_session(str(b))
+        bridge.switch_session(str(a))
+        runner_a_second = bridge._active_runner()
+
+        assert runner_a_first is runner_a_second, (
+            "returning to a session must reuse its existing runner"
+        )
+    finally:
+        ui_mod.SESSIONS_ROOT = real_root
+
+
+def test_reject_dangerous_cwd_rejects_home_and_system_roots():
+    """A cwd of ``~`` (or ``/``, ``/Users``, ``/Library``, etc.) is too
+    broad for the sandbox: the profile grants ``file-read*`` and
+    ``file-write*`` over the entire subtree, and the ``.sift`` carve-
+    out only blocks Sift's own state. A researcher who picks their
+    home directory (intentionally or via mis-click in the folder
+    picker) would let scripts read ``~/.ssh``, ``~/.aws``, every
+    Document, and write anywhere under home.
+
+    The fix lives in ``ui._reject_dangerous_cwd`` and is wired into
+    both entry points where a researcher can hand Sift an arbitrary
+    directory: the folder picker (``choose_folder``) and the CLI
+    positional argument (``main``). Staged sessions land under
+    SESSIONS_ROOT and ``switch_session`` enforces parent ==
+    SESSIONS_ROOT, so those paths don't need this check.
+
+    Plausible project parents like ``~/Documents`` are intentionally
+    NOT rejected — a researcher might keep studies under
+    ``~/Documents/research/my-study/`` and over-blocking would harm
+    real workflows. The check fires only on roots that no realistic
+    project lives directly inside.
+    """
+    from pathlib import Path
+    from sift.ui import _reject_dangerous_cwd
+
+    # Home dir itself must be rejected.
+    reason = _reject_dangerous_cwd(Path.home())
+    assert reason is not None
+    assert "home directory" in reason
+
+    # Filesystem roots that would grant unreasonable scope.
+    for forbidden in (
+        "/", "/Users", "/Library", "/System", "/etc", "/Volumes", "/mnt",
+    ):
+        reason = _reject_dangerous_cwd(Path(forbidden))
+        assert reason is not None, (
+            f"{forbidden} must be rejected as a too-broad cwd"
+        )
+
+    # Plausible project directories must pass through.
+    home_subdir = Path.home() / "Documents" / "some-project"
+    assert _reject_dangerous_cwd(home_subdir) is None
+
+
+def test_cli_main_rejects_dangerous_cwd(monkeypatch, capsys):
+    """``sift <cwd>`` must apply the same privacy gate as the folder
+    picker. Without this, a researcher who launches ``sift ~`` would
+    silently grant the sandbox read+write over their entire home tree
+    (only ``.sift`` is carved out), which is exactly what
+    ``_reject_dangerous_cwd`` was added to refuse on the picker path.
+
+    The check is wired into ``main()`` between ``_resolve_cwd`` and
+    ``set_cwd``; on rejection we exit with code 2 and a researcher-
+    readable message, mirroring the picker's ``{ok: False, reason}``
+    return. This regression test pins the wiring so a future
+    refactor of ``main`` doesn't accidentally drop the gate.
+    """
+    import sift.ui as ui_mod
+
+    set_cwd_calls: list[Path] = []
+    monkeypatch.setattr(
+        ui_mod, "set_cwd",
+        lambda p: set_cwd_calls.append(Path(p)),
+    )
+    # ``main()`` parses ``sys.argv`` via argparse.
+    monkeypatch.setattr("sys.argv", ["sift", str(Path.home())])
+
+    with pytest.raises(SystemExit) as excinfo:
+        ui_mod.main()
+
+    assert excinfo.value.code == 2
+    err = capsys.readouterr().err
+    assert "home directory" in err
+    # And — crucially — set_cwd was never called: a rejected CLI
+    # cwd must not partially install itself before the exit.
+    assert set_cwd_calls == []
+
+
+def test_switch_session_rejects_root_and_nested_paths(tmp_path: Path):
+    """``switch_session`` must accept only direct children of
+    SESSIONS_ROOT. Accepting the root itself would point cwd at the
+    directory that contains every session, breaking the cross-session
+    isolation gate (every other session becomes a child of cwd).
+    Accepting a nested path inside a session would spawn a runner
+    whose cwd doesn't see the session's ``.sift/`` state.
+    """
+    import sift.ui as ui_mod
+    real_root = ui_mod.SESSIONS_ROOT
+    ui_mod.SESSIONS_ROOT = tmp_path
+    try:
+        a = tmp_path / "a"
+        a.mkdir()
+        nested = a / "subdir"
+        nested.mkdir()
+
+        bridge = SiftBridge(cwd=a)
+
+        # The sessions root itself is NOT a session.
+        result = bridge.switch_session(str(tmp_path))
+        assert not result["ok"]
+        assert "session directory" in result["reason"]
+        assert bridge.cwd == a.resolve(), (
+            "rejected switch must not change focus"
+        )
+
+        # A nested directory inside a session is also NOT a session.
+        result = bridge.switch_session(str(nested))
+        assert not result["ok"]
+        assert "session directory" in result["reason"]
+        assert bridge.cwd == a.resolve()
+
+        # Sanity: a real direct child still works.
+        b = tmp_path / "b"
+        b.mkdir()
+        result = bridge.switch_session(str(b))
+        assert result["ok"], result
+        assert bridge.cwd == b.resolve()
+    finally:
+        ui_mod.SESSIONS_ROOT = real_root
+
+
+def test_switch_session_rechecks_dangerous_cwd_for_registered_folder(
+    tmp_path: Path,
+):
+    """A registered folder is rechecked against dangerous paths.
+
+    A folder reached the registry only because it
+    passed ``_reject_dangerous_cwd`` at ``choose_folder`` time -- but
+    ``switch_session`` used to trust registry membership forever,
+    never re-running that check on re-open. If a future Sift release
+    broadens ``_DANGEROUS_CWD_LITERALS`` (or the registered folder
+    itself becomes newly-dangerous some other way), a folder that
+    passed the gate once would sail through on every subsequent visit
+    with no re-validation.
+
+    This test proves the re-check fires: register a literal dangerous
+    path directly via ``external_sessions.register`` (bypassing
+    ``choose_folder`` entirely, exactly like an old registry entry
+    written under a narrower rule-set would look), then confirm
+    ``switch_session`` still refuses it.
+    """
+    from sift import external_sessions
+    import sift.ui as ui_mod
+
+    real_root = ui_mod.SESSIONS_ROOT
+    ui_mod.SESSIONS_ROOT = tmp_path
+    try:
+        a = tmp_path / "a"
+        a.mkdir()
+        bridge = SiftBridge(cwd=a)
+
+        # Simulate a pre-existing registry entry for a dangerous path
+        # (e.g. written before a hypothetical future release broadened
+        # the dangerous-literals set). Registration itself doesn't run
+        # ``_reject_dangerous_cwd`` -- only ``choose_folder`` does --
+        # so this exactly reproduces "checked once, long ago, under
+        # different rules."
+        dangerous = Path.home()
+        external_sessions.register(tmp_path, dangerous)
+        assert external_sessions.is_registered(tmp_path, dangerous)
+
+        result = bridge.switch_session(str(dangerous))
+
+        assert not result["ok"], (
+            "switch_session must re-run _reject_dangerous_cwd even for "
+            "an already-registered folder, not just staged sessions"
+        )
+        assert "home directory" in result["reason"]
+        assert bridge.cwd == a.resolve(), (
+            "a rejected switch must not change focus"
+        )
+    finally:
+        ui_mod.SESSIONS_ROOT = real_root
+
+
+def test_switch_session_still_accepts_safe_registered_folder(
+    tmp_path: Path,
+):
+    """Negative control for the re-check above: a legitimately safe
+    registered folder (the common case -- a researcher's project
+    directory opened via the picker) must keep working. The new
+    ``_reject_dangerous_cwd`` re-check must not regress the happy
+    path."""
+    from sift import external_sessions
+    import sift.ui as ui_mod
+
+    real_root = ui_mod.SESSIONS_ROOT
+    ui_mod.SESSIONS_ROOT = tmp_path
+    try:
+        a = tmp_path / "a"
+        a.mkdir()
+        bridge = SiftBridge(cwd=a)
+
+        safe_folder = tmp_path.parent / f"external-project-{tmp_path.name}"
+        safe_folder.mkdir()
+        external_sessions.register(tmp_path, safe_folder)
+        assert external_sessions.is_registered(tmp_path, safe_folder)
+
+        result = bridge.switch_session(str(safe_folder))
+
+        assert result["ok"], result
+        assert bridge.cwd == safe_folder.resolve()
+    finally:
+        ui_mod.SESSIONS_ROOT = real_root
+        import shutil
+        shutil.rmtree(safe_folder, ignore_errors=True)
+
+
+def test_switch_session_staged_sessions_unaffected_by_recheck(
+    tmp_path: Path,
+):
+    """Staged sessions (direct children of SESSIONS_ROOT) are
+    inherently safe by construction and must not be affected by the
+    registered-folder re-check -- confirming the fix is a true no-op
+    for the ``is_staged_session`` branch, matching the existing
+    ``test_switch_session_rejects_root_and_nested_paths`` happy path."""
+    import sift.ui as ui_mod
+    real_root = ui_mod.SESSIONS_ROOT
+    ui_mod.SESSIONS_ROOT = tmp_path
+    try:
+        a = tmp_path / "a"
+        b = tmp_path / "b"
+        a.mkdir()
+        b.mkdir()
+        bridge = SiftBridge(cwd=a)
+
+        result = bridge.switch_session(str(b))
+        assert result["ok"], result
+        assert bridge.cwd == b.resolve()
+    finally:
+        ui_mod.SESSIONS_ROOT = real_root
+
+
+def test_forget_external_session_removes_registry_entry_only(
+    tmp_path: Path,
+):
+    """Forgetting a session removes only its registry entry.
+
+    ``external_sessions.forget`` is the
+    written as the intended "remove this project from my sidebar"
+    mechanism but never wired to anything callable from the UI. This
+    pins the fix: ``forget_external_session`` removes the registry
+    entry, leaves the folder and its contents completely untouched
+    on disk, and does not require the folder to be the focused
+    session.
+    """
+    from sift import external_sessions
+    import sift.ui as ui_mod
+
+    real_root = ui_mod.SESSIONS_ROOT
+    ui_mod.SESSIONS_ROOT = tmp_path
+    try:
+        a = tmp_path / "a"
+        a.mkdir()
+        bridge = SiftBridge(cwd=a)
+
+        project = tmp_path.parent / f"ext-project-{tmp_path.name}"
+        project.mkdir()
+        (project / "notes.txt").write_text("keep me")
+        external_sessions.register(tmp_path, project)
+        assert external_sessions.is_registered(tmp_path, project)
+
+        result = bridge.forget_external_session(str(project))
+
+        assert result["ok"], result
+        assert not external_sessions.is_registered(tmp_path, project), (
+            "the registry entry must be gone after forgetting"
+        )
+        # Nothing on disk was touched.
+        assert project.is_dir()
+        assert (project / "notes.txt").read_text(encoding="utf-8") == "keep me"
+    finally:
+        ui_mod.SESSIONS_ROOT = real_root
+        import shutil
+        shutil.rmtree(project, ignore_errors=True)
+
+
+def test_forget_external_session_does_not_disturb_active_focus(
+    tmp_path: Path,
+):
+    """Forgetting the CURRENTLY-focused folder-backed session must
+    not close its runner or change ``bridge.cwd`` -- unlike
+    ``delete_session``, this operation only affects the sidebar's
+    recent-folders list, never the live session. The researcher
+    keeps working uninterrupted; they just won't see the folder in
+    the sidebar next time unless they re-open it via the picker."""
+    from sift import external_sessions
+    import sift.ui as ui_mod
+
+    real_root = ui_mod.SESSIONS_ROOT
+    ui_mod.SESSIONS_ROOT = tmp_path
+    try:
+        project = tmp_path.parent / f"ext-active-{tmp_path.name}"
+        project.mkdir()
+        external_sessions.register(tmp_path, project)
+
+        bridge = SiftBridge(cwd=project)
+        runner_before = bridge._active_runner()
+        assert runner_before is not None
+        runner_before._session = MagicMock()
+        sentinel = runner_before._session
+
+        result = bridge.forget_external_session(str(project))
+
+        assert result["ok"], result
+        assert bridge.cwd == project.resolve(), (
+            "forgetting must not change bridge focus"
+        )
+        assert bridge._active_runner() is runner_before, (
+            "forgetting must not tear down or replace the active runner"
+        )
+        assert runner_before._session is sentinel, (
+            "forgetting must not close the active runner's session"
+        )
+    finally:
+        ui_mod.SESSIONS_ROOT = real_root
+        import shutil
+        shutil.rmtree(project, ignore_errors=True)
+
+
+def test_forget_external_session_rejects_unregistered_path(
+    tmp_path: Path,
+):
+    """A path that was never registered (a staged session, a random
+    directory, a typo) must be refused -- this method is scoped to
+    the external-sessions registry only, it is not a generic "remove
+    this row" endpoint that happens to no-op safely on the wrong
+    input."""
+    import sift.ui as ui_mod
+    real_root = ui_mod.SESSIONS_ROOT
+    ui_mod.SESSIONS_ROOT = tmp_path
+    try:
+        a = tmp_path / "a"
+        a.mkdir()
+        bridge = SiftBridge(cwd=a)
+
+        result = bridge.forget_external_session(str(a))
+        assert not result["ok"]
+        assert "not a registered" in result["reason"]
+    finally:
+        ui_mod.SESSIONS_ROOT = real_root
+
+
+# ---------------------------------------------------------------------------
+# Cold start prefix — unchanged (memory still per-cwd)
+# ---------------------------------------------------------------------------
+
+def test_cold_start_prefix_contains_prior_exchange(tmp_path: Path):
+    """``build_context_prefix`` renders a block containing prior
+    exchanges so Claude picks up where the researcher left off."""
+    (tmp_path / ".sift").mkdir()
+    log = tmp_path / ".sift" / "chat_history.jsonl"
+    log.write_text(
+        json.dumps({"type": "user_message", "text": "what does the gate do?"}) + "\n"
+        + json.dumps({"type": "assistant_text",
+                      "text": "It flags revolving-door entries."}) + "\n"
+    )
+
+    prefix = build_context_prefix(tmp_path, results=[])
+    assert "Session state at resume" in prefix
+    assert "what does the gate do?" in prefix
+    assert "revolving-door" in prefix
+    assert "End of session state" in prefix
+
+
+def test_cold_start_brand_new_session_has_no_prefix(tmp_path: Path):
+    """A session with no chat_history and no results must produce
+    an empty prefix."""
+    assert build_context_prefix(tmp_path, results=[]) == ""
+
+
+def test_cold_start_prefix_across_multiple_sessions(tmp_path: Path):
+    """History is per-cwd, not global — two different session dirs
+    produce two different prefixes."""
+    session_a = tmp_path / "a"
+    session_b = tmp_path / "b"
+    (session_a / ".sift").mkdir(parents=True)
+    (session_b / ".sift").mkdir(parents=True)
+
+    (session_a / ".sift" / "chat_history.jsonl").write_text(
+        json.dumps({"type": "user_message", "text": "about dataset A"}) + "\n"
+    )
+    (session_b / ".sift" / "chat_history.jsonl").write_text(
+        json.dumps({"type": "user_message", "text": "about dataset B"}) + "\n"
+    )
+
+    prefix_a = build_context_prefix(session_a, results=[])
+    prefix_b = build_context_prefix(session_b, results=[])
+
+    assert "about dataset A" in prefix_a
+    assert "about dataset B" not in prefix_a
+    assert "about dataset B" in prefix_b
+    assert "about dataset A" not in prefix_b
+
+
+# ---------------------------------------------------------------------------
+# Stop button — affects the active runner only
+# ---------------------------------------------------------------------------
+
+def test_interrupt_turn_no_running_turn(tmp_path: Path):
+    """Stop with nothing in flight: surfaces a clean error rather
+    than raising."""
+    bridge = SiftBridge(cwd=tmp_path)
+
+    bridge.start_loop()
+    try:
+        result = bridge.interrupt_turn()
+    finally:
+        loop = bridge._loop
+        thread = bridge._loop_thread
+        bridge.stop_loop()
+
+    assert loop is not None and loop.is_closed()
+    assert thread is not None and not thread.is_alive()
+    assert bridge._loop is None
+    assert bridge._loop_thread is None
+    assert result["ok"] is False
+    assert "no turn in flight" in result["reason"]
+
+
+def test_interrupt_pending_turn_marks_cancelled_before_run(tmp_path: Path):
+    """The fast-Stop race: if the researcher hits Stop in the gap
+    between ``send_message`` returning and ``run_turn`` actually
+    starting on the worker loop, the runner must mark the pending id
+    cancelled so the eventual ``run_turn`` call bails before opening
+    a session or hitting the API.
+
+    Pre-fix: ``interrupt_turn`` saw ``is_busy() is False`` (no
+    current task yet) and returned "no turn in flight" while the
+    queued coroutine went on to execute the cancelled turn.
+    """
+    bridge = SiftBridge(cwd=tmp_path)
+    bridge.start_loop()
+    try:
+        runner = bridge._active_runner()
+        assert runner is not None
+
+        # Simulate what ``_send_to_active`` does synchronously: register
+        # the pending id BEFORE the coroutine has been picked up by the
+        # worker loop.
+        runner.register_pending_turn("t-pending")
+
+        # Bridge sees a turn in flight via the pending list.
+        assert runner.is_busy() is True
+
+        res = bridge.interrupt_turn()
+        assert res["ok"] is True
+        assert res["turn_id"] == "t-pending"
+        # The id is now in ``_cancelled_turn_ids``; ``run_turn`` checks
+        # this on entry and bails before doing any LLM work.
+        assert runner.is_turn_cancelled("t-pending") is True
+        # Pending list drained so a second Stop doesn't re-cancel the
+        # same id.
+        assert "t-pending" not in runner._pending_turn_ids
+    finally:
+        bridge.stop_loop()
+
+
+def test_cancel_turn_does_not_cancel_running_task_when_pending_targeted(
+    tmp_path: Path,
+):
+    """A pending turn cancellation must NOT cancel the already-
+    running turn's asyncio task. Without the equality check in
+    ``cancel_turn``, falling back to the latest pending id would
+    still call ``task.cancel`` on whatever task happened to be in
+    ``_current_turn_task`` — the previous, still-running turn.
+    """
+    bridge = SiftBridge(cwd=tmp_path)
+    bridge.start_loop()
+    try:
+        runner = bridge._active_runner()
+        assert runner is not None
+
+        running_cancelled = False
+
+        class _FakeTask:
+            def done(self) -> bool: return False
+            def cancel(self) -> None:
+                nonlocal running_cancelled
+                running_cancelled = True
+            def get_loop(self):
+                return bridge._loop
+
+        # Plant a fake "currently running" task A and pend a separate
+        # turn B.
+        runner._current_turn_task = _FakeTask()  # type: ignore[assignment]
+        runner._current_turn_id = "t-running"
+        runner.register_pending_turn("t-pending")
+
+        # Cancel without an explicit id. Resolution order is:
+        # _current_turn_id → 't-running'. (cancel_turn falls back to
+        # pending only when nothing is current.) The running task
+        # SHOULD get cancelled in this case.
+        result = runner.cancel_turn()
+        assert result == "t-running"
+        # Cancellation hops via ``call_soon_threadsafe``; let it land.
+        import time
+        time.sleep(0.05)
+        assert running_cancelled is True
+
+        # Now the pending one: explicit id, no current task left.
+        running_cancelled = False
+        runner._current_turn_task = None
+        runner._current_turn_id = None
+        # Re-register since cancel_turn drained it.
+        runner.register_pending_turn("t-pending")
+        # Plant ANOTHER running task to make sure it ISN'T cancelled
+        # when we target the pending id.
+        other_cancelled = False
+
+        class _OtherTask:
+            def done(self) -> bool: return False
+            def cancel(self) -> None:
+                nonlocal other_cancelled
+                other_cancelled = True
+            def get_loop(self):
+                return bridge._loop
+
+        runner._current_turn_task = _OtherTask()  # type: ignore[assignment]
+        runner._current_turn_id = "t-other-running"
+
+        result = runner.cancel_turn("t-pending")
+        assert result == "t-pending"
+        time.sleep(0.05)
+        # The other task is NOT cancelled because its id doesn't
+        # match the cancellation target.
+        assert other_cancelled is False
+    finally:
+        # Clear before stop_loop awaits runner.close().
+        for r in bridge._runners.values():
+            r._current_turn_task = None
+            r._current_turn_id = None
+        bridge.stop_loop()
+
+
+# ---------------------------------------------------------------------------
+# send_message_to_session — explicit-target send for the queue-flush path
+# ---------------------------------------------------------------------------
+
+def test_send_message_to_session_routes_to_target_not_focus(tmp_path: Path):
+    """``fireQueuedMessage`` calls the targeted variant after a
+    background turn finishes. If session A queued a follow-up and
+    the user has since switched the focus to session B, the queued
+    send MUST land on A's runner, not B's. Pre-fix: the bridge had
+    no targeted variant; ``send_message`` always routed to
+    ``self.cwd`` (the focused session), so A's queued message would
+    persist and execute against B's working directory.
+    """
+    a = (tmp_path / "session-a").resolve()
+    b = (tmp_path / "session-b").resolve()
+    a.mkdir()
+    b.mkdir()
+
+    bridge = SiftBridge(cwd=a)
+    bridge.start_loop()
+    try:
+        # Lazy-create both runners so the targeted send has someone
+        # to route to.
+        runner_a = bridge._ensure_runner_for_cwd(a)
+        runner_b = bridge._ensure_runner_for_cwd(b)
+        assert runner_a is not runner_b
+        # Simulate the user switching focus to B without going through
+        # ``switch_session`` (which enforces SESSIONS_ROOT containment
+        # — irrelevant to what this test pins).
+        bridge.cwd = b
+        assert bridge.cwd == b
+
+        # Patch run_turn on both runners to a no-op coroutine that
+        # records which runner got the call. We don't want the test
+        # to actually open a provider session.
+        called_on: list[str] = []
+
+        async def _spy_a(*args, **kwargs):
+            called_on.append("a")
+
+        async def _spy_b(*args, **kwargs):
+            called_on.append("b")
+
+        runner_a.run_turn = _spy_a  # type: ignore[assignment]
+        runner_b.run_turn = _spy_b  # type: ignore[assignment]
+
+        turn_id = bridge.send_message_to_session(str(a), "hi from A's queue")
+        assert turn_id is not None, (
+            "targeted send should schedule even when focus is on B"
+        )
+        # Give the worker loop a beat to dispatch.
+        import time
+        time.sleep(0.05)
+        assert called_on == ["a"], (
+            f"queued message must run on session A, got {called_on}"
+        )
+    finally:
+        bridge.stop_loop()
+
+
+def test_send_message_to_session_rejects_unknown_cwd(tmp_path: Path):
+    """A targeted send must NOT lazy-create runners for arbitrary
+    caller-supplied paths — that would let a stale queue resurrect
+    a session the researcher has since deleted. Unknown targets
+    should produce a turn_error event and return None instead.
+    """
+    bridge = SiftBridge(cwd=tmp_path)
+    bridge.start_loop()
+    try:
+        events: list[dict] = []
+        bridge._dispatch_event = events.append  # type: ignore[assignment]
+
+        result = bridge.send_message_to_session(
+            str(tmp_path / "does-not-exist"), "hi",
+        )
+        assert result is None
+        assert any(
+            e.get("type") == "turn_error"
+            and "no longer open" in (e.get("message") or "")
+            for e in events
+        ), f"expected turn_error event, got {events}"
+    finally:
+        bridge.stop_loop()
+
+
+# ---------------------------------------------------------------------------
+# delete_session on the currently-active session
+# ---------------------------------------------------------------------------
+
+def test_windows_session_tree_delete_retries_read_only_files(tmp_path: Path):
+    """Windows deletion clears canonical snapshots' read-only attribute."""
+    import os
+    import stat
+    import sift.ui as ui_mod
+
+    session = tmp_path / "session"
+    session.mkdir()
+    snapshot = session / "canonical.csv"
+    snapshot.write_text("x\n1\n", encoding="utf-8")
+    snapshot.chmod(stat.S_IRUSR)
+    retried: list[Path] = []
+
+    def windows_shaped_rmtree(_target, *, onerror):
+        error = PermissionError("read-only")
+
+        def retry(candidate):
+            retried.append(Path(candidate))
+
+        onerror(retry, str(snapshot), (PermissionError, error, None))
+
+    with pytest.MonkeyPatch.context() as patcher:
+        patcher.setattr(ui_mod.shutil, "rmtree", windows_shaped_rmtree)
+        ui_mod._remove_session_tree(session, windows=True)
+
+    assert retried == [snapshot]
+    assert os.stat(snapshot).st_mode & stat.S_IWUSR
+
+
+def test_windows_session_tree_delete_never_chmods_links(tmp_path: Path):
+    """The read-only retry must fail closed at a session-boundary link."""
+    import os
+    import stat
+    import sift.ui as ui_mod
+
+    session = tmp_path / "session"
+    session.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("private", encoding="utf-8")
+    outside.chmod(stat.S_IRUSR)
+    linked = session / "linked"
+    try:
+        linked.symlink_to(outside)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks are unavailable on this host")
+    original_mode = os.stat(outside).st_mode
+
+    def windows_shaped_rmtree(_target, *, onerror):
+        error = PermissionError("read-only link")
+        onerror(lambda _candidate: None, str(linked), (
+            PermissionError, error, None,
+        ))
+
+    with pytest.MonkeyPatch.context() as patcher:
+        patcher.setattr(ui_mod.shutil, "rmtree", windows_shaped_rmtree)
+        with pytest.raises(PermissionError, match="read-only link"):
+            ui_mod._remove_session_tree(session, windows=True)
+
+    assert os.stat(outside).st_mode == original_mode
+
+def test_delete_session_on_active_clears_cwd_and_signals_landing(tmp_path: Path):
+    """Deleting the focused session must:
+       1. rmtree the session directory
+       2. close the active runner and drop it from ``_runners``
+       3. set ``self.cwd = None`` so subsequent bridge calls don't
+          read from a vanished path
+       4. return ``was_active=True`` so the page knows to navigate
+          to the landing screen.
+
+    Without (3) the bridge would keep handing back a stale Path to
+    ``policy_summary``, ``get_chat_history``, etc. — every subsequent
+    call would crash on a missing directory."""
+    import sift.ui as ui_mod
+    from sift.ui import SiftBridge
+
+    session = tmp_path / "active_session"
+    session.mkdir()
+
+    real_root = ui_mod.SESSIONS_ROOT
+    ui_mod.SESSIONS_ROOT = tmp_path
+    try:
+        bridge = SiftBridge(cwd=session)
+        # Sanity: bridge is focused on this session.
+        assert bridge.cwd == session.resolve()
+        assert str(session.resolve()) in bridge._runners
+
+        res = bridge.delete_session(str(session))
+
+        assert res["ok"] is True
+        assert res.get("was_active") is True
+        assert res["path"] == str(session.resolve())
+        assert not session.exists(), "the session directory must be gone"
+        assert bridge.cwd is None, "active cwd must be cleared after delete"
+        assert str(session.resolve()) not in bridge._runners, (
+            "the runner must be dropped along with the directory"
+        )
+    finally:
+        ui_mod.SESSIONS_ROOT = real_root
+
+
+def test_delete_session_on_inactive_keeps_focus(tmp_path: Path):
+    """Deleting a non-focused session does NOT clear the bridge's
+    active cwd — only the targeted runner is removed. ``was_active``
+    is False so the page stays on the current chat."""
+    import sift.ui as ui_mod
+    from sift.ui import SiftBridge
+
+    active = tmp_path / "active"
+    other = tmp_path / "other"
+    active.mkdir()
+    other.mkdir()
+
+    real_root = ui_mod.SESSIONS_ROOT
+    ui_mod.SESSIONS_ROOT = tmp_path
+    try:
+        bridge = SiftBridge(cwd=active)
+        # Touch ``other`` enough that it has a runner entry so we can
+        # confirm only that one gets popped (not the active one).
+        bridge._ensure_runner_for_cwd(other)
+        assert str(other.resolve()) in bridge._runners
+        assert str(active.resolve()) in bridge._runners
+
+        res = bridge.delete_session(str(other))
+
+        assert res["ok"] is True
+        assert res.get("was_active") is False
+        assert not other.exists()
+        assert active.exists(), "the focused session must be untouched"
+        assert bridge.cwd == active.resolve()
+        assert str(active.resolve()) in bridge._runners
+        assert str(other.resolve()) not in bridge._runners
+    finally:
+        ui_mod.SESSIONS_ROOT = real_root
+
+
+# ---------------------------------------------------------------------------
+# Out-of-scope for these tests (require live SDK or live Claude)
+# ---------------------------------------------------------------------------
+#
+# Verifying that the runner's ``_run_turn`` actually streams events
+# from the SDK requires a mocked client. The runner-level tests in
+# ``test_concurrent_sessions.py`` cover the cross-session
+# non-trampling invariant directly with a fake provider session.

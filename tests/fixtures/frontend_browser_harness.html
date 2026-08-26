@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sift browser harness</title>
+  <style>
+    html, body, iframe { width: 100%; height: 100%; margin: 0; border: 0; }
+    body { overflow: hidden; }
+  </style>
+</head>
+<body>
+  <iframe id="sift" title="Sift frontend"></iframe>
+  <script>
+    const frame = document.getElementById('sift');
+    const harnessParams = new URLSearchParams(location.search);
+    const requestedState = harnessParams.get('state') || 'needs_session';
+    const cacheToken = harnessParams.get('cache') || 'default';
+    frame.addEventListener('load', () => {
+      const api = new Proxy({
+        ui_ready: async () => requestedState === 'needs_auth'
+          ? { state: 'needs_auth', auth: { providers: [] } }
+          : {
+              state: requestedState,
+              cwd: '/Users/researcher/Sift/sample-customers',
+              session_name: 'Customer retention study',
+              auth: { providers: [{ provider: 'openai', configured: true }] },
+            },
+        list_busy_sessions: async () => ({ ok: true, cwds: [] }),
+        list_sessions: async () => ({ ok: true, sessions: [] }),
+        list_providers: async () => ({ ok: true, providers: [] }),
+        list_session_files: async () => ({ ok: true, files: [] }),
+        get_models: async () => ({ ok: true, models: [] }),
+        get_permissions: async () => ({ ok: true, datasets: [] }),
+        get_plan: async () => ({ ok: true, steps: [] }),
+        get_doctor_report: async () => ({ ok: true, blocked: false, runtimes: [] }),
+      }, {
+        get(target, property) {
+          if (property in target) return target[property];
+          return async () => ({ ok: true });
+        },
+      });
+      frame.contentWindow.pywebview = { api };
+      frame.contentWindow.dispatchEvent(new Event('pywebviewready'));
+    }, { once: true });
+    frame.src = `/src/sift/web/index.html?browser-harness=${encodeURIComponent(cacheToken)}`;
+  </script>
+</body>
+</html>

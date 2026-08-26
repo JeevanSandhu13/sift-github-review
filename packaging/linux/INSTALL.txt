@@ -1,0 +1,98 @@
+SIFT FOR LINUX
+==============
+
+Installation
+------------
+1. Extract the complete Sift-Linux-<architecture>.tar.gz archive.
+2. Open a terminal in the extracted Sift directory.
+3. On Ubuntu 24.04, first verify that the operating system permits Sift's
+   sandbox. This helper is a no-op when the policy already works; otherwise it
+   installs Ubuntu's official narrow bubblewrap AppArmor profile without
+   disabling the system-wide user-namespace restriction:
+
+     sudo ./prepare_ubuntu_host.sh
+
+4. Run:
+
+     ./install.sh
+
+5. Open Sift from the desktop application menu, or run ~/.local/bin/sift.
+
+The installer is per-user and does not require administrator access. It uses
+XDG_DATA_HOME and XDG_BIN_HOME when those variables are set; otherwise it
+installs under ~/.local/share and ~/.local/bin. The optional Ubuntu host-policy
+preparation is separate from the application install and requires an
+administrator because it installs an operating-system AppArmor policy.
+
+Runtime requirements
+--------------------
+- A 64-bit glibc-based Linux desktop: glibc 2.35 or newer on x86_64,
+  or glibc 2.39 or newer on ARM64.
+- An X11 or Wayland desktop session.
+- bubblewrap with working unprivileged namespace confinement.
+- A running Freedesktop Secret Service-compatible credential vault.
+- The standard desktop libraries used by Qt WebEngine: libasound.so.2,
+  libminizip.so.1, libsnappy.so.1, libwebpdemux.so.2, and libwebpmux.so.3.
+  On supported Ubuntu releases these are supplied by libasound2 (22.04) or
+  libasound2t64 (24.04), libminizip1 (22.04) or libminizip1t64 (24.04),
+  libsnappy1v5, libwebpdemux2, and libwebpmux3.
+- The standard Qt X11 integration libraries libxcb-icccm.so.4 and
+  libxcb-keysyms.so.1 (libxcb-icccm4 and libxcb-keysyms1 on Ubuntu).
+- The standard graphics buffer and EGL dispatch libraries libgbm.so.1 and
+  libEGL.so.1 (libgbm1 and libegl1 on Ubuntu). These are required even when
+  Sift uses software rendering or runs in a virtual desktop session.
+
+The release pipeline builds on Ubuntu 22.04 x86_64 and reinstalls the resulting
+artifact on Ubuntu 24.04. A separate native lane qualifies the aarch64 build on
+Ubuntu 24.04 hardware. Other distributions must pass Sift's platform, renderer,
+and credential-vault checks on their native system. Sift never disables the Qt
+WebEngine sandbox to make an unsupported machine appear compatible.
+
+Data, settings, and privacy
+---------------------------
+- Sift includes no model account. Add your own provider API key or local model
+  endpoint from Manage providers.
+- API keys, database credentials, and remote-source credentials are stored in
+  the desktop's Secret Service vault, never in a Sift plaintext settings file.
+- Imported sessions are stored under ~/.sift-sessions. A folder opened in
+  place keeps its private Sift state in that folder's .sift directory.
+- Bounded, redacted diagnostics use $XDG_STATE_HOME/sift/log, or
+  ~/.local/state/sift/log when XDG_STATE_HOME is not set.
+- Sift does not check for updates at startup. Update access occurs only when
+  you explicitly request it.
+
+Institutional settings
+----------------------
+Administrators may place an optional root-owned policy at:
+
+  /etc/sift/enterprise_policy.yaml
+
+It can restrict providers, data connectors, destinations, disclosure,
+diagnostics, exports, and resource limits. An invalid configured policy fails
+closed. Ordinary users do not need this file.
+
+Uninstall
+---------
+Run the uninstaller retained with the installed application:
+
+  "${XDG_DATA_HOME:-$HOME/.local/share}/sift/uninstall.sh"
+
+Uninstall removes the application, launcher, desktop entry, and Sift icons.
+Research sessions, project .sift directories, diagnostics, and credential-vault
+entries are deliberately retained. Forget credentials inside Sift before
+uninstalling if you also want the corresponding secrets removed. The Ubuntu
+bubblewrap profile is also retained because it is shared operating-system
+policy, not user-owned Sift application data.
+
+Support checks
+--------------
+Run:
+
+  ~/.local/bin/sift --platform-check
+  ~/.local/bin/sift --credential-store-check
+
+The first command verifies the renderer bindings, Secret Service integration,
+bundled assets, 64-bit runtime, and bubblewrap confinement. The second writes,
+reads, and deletes a random non-user canary in the desktop credential vault. It
+never reads or changes a provider or database credential; the desktop may ask
+the user to unlock its vault.

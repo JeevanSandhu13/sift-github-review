@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- WKWebView caches file:// resources persistently across launches
+       on macOS (NSURLCache survives the process). Without these
+       directives, every code change to app.js / style.css required the
+       user to manually clear ~/Library/Caches/com.apple.WebKit.WebContent.
+       The bridge ALSO appends a per-launch ``?v=<build-id>`` query
+       string to the resource references at HTML-load time as a second
+       layer of busting. -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="theme-color" content="#f4f5f2" />
+  <title>Sift</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="app-icon.png">
+  <!-- Lexend is bundled under web/fonts/ and loaded locally. The desktop
+       interface has no remote font or frontend-asset dependency. -->
+  <link rel="stylesheet" href="style.css" />
+  <!-- The desktop shell is intentionally a separate final layer. It
+       modernizes the visual system without coupling presentation changes
+       to the mature bridge and analysis-output styles in style.css. -->
+  <link rel="stylesheet" href="desktop-shell.css" />
+  <link rel="stylesheet" href="sources.css" />
+</head>
+<body>
+  <a id="skip-link" class="skip-link" href="#messages">Skip to research workspace</a>
+  <!-- Auth view: shown on first launch (no provider configured) and
+       any time every credential is removed. The researcher configures
+       at least one API-backed or local provider before continuing. -->
+  <div id="auth" class="auth hidden">
+    <div id="auth-content" class="auth-card" tabindex="-1">
+      <div class="landing-hero">
+        <!-- Text stays sharp at OS scaling levels and adapts to both themes. -->
+        <div class="landing-wordmark" role="img" aria-label="Sift — private intelligence for your data">Sift</div>
+        <div class="landing-tagline">Local analysis. Controlled disclosure.</div>
+      </div>
+      <h1>Connect a model</h1>
+      <p class="auth-lead">
+        Sift drives a frontier model against your data. Pick at least
+        one provider and paste an API key. Keys are stored in your
+        operating system's protected credential store, never on disk in
+        cleartext.
+      </p>
+
+      <div class="auth-providers">
+        <!-- Anthropic row -->
+        <div class="auth-provider" data-provider="anthropic">
+          <div class="auth-provider-header">
+            <div class="auth-provider-name">Anthropic</div>
+            <div class="auth-provider-status" data-role="status" role="status" aria-live="polite"></div>
+          </div>
+          <div class="auth-provider-help">
+            Paste a Claude Console API key
+            (<a
+              class="auth-help-link"
+              href="https://console.anthropic.com/settings/keys"
+              data-external-url="https://console.anthropic.com/settings/keys"
+            >create/fetch</a>). Sift does not use Claude subscription login;
+            model access and billing stay with your Claude Console account.
+          </div>
+          <div class="auth-provider-input">
+            <input
+              type="password"
+              data-role="key-input"
+              aria-label="Anthropic API key"
+              placeholder="sk-ant-..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="button" class="auth-btn primary" data-role="save-btn">Save</button>
+            <button type="button" class="auth-btn" data-role="forget-btn" disabled>Forget</button>
+          </div>
+        </div>
+
+        <!-- OpenAI row -->
+        <div class="auth-provider" data-provider="openai">
+          <div class="auth-provider-header">
+            <div class="auth-provider-name">OpenAI</div>
+            <div class="auth-provider-status" data-role="status" role="status" aria-live="polite"></div>
+          </div>
+          <div class="auth-provider-help">
+            API key only
+            (<a
+              class="auth-help-link"
+              href="https://platform.openai.com/api-keys"
+              data-external-url="https://platform.openai.com/api-keys"
+            >create/fetch</a>).
+            OpenAI subscriptions don't cover API usage.
+          </div>
+          <div class="auth-provider-input">
+            <input
+              type="password"
+              data-role="key-input"
+              aria-label="OpenAI API key"
+              placeholder="sk-..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="button" class="auth-btn primary" data-role="save-btn">Save</button>
+            <button type="button" class="auth-btn" data-role="forget-btn" disabled>Forget</button>
+          </div>
+        </div>
+
+        <!-- Gemini row -->
+        <div class="auth-provider" data-provider="gemini">
+          <div class="auth-provider-header">
+            <div class="auth-provider-name">Gemini</div>
+            <div class="auth-provider-status" data-role="status" role="status" aria-live="polite"></div>
+          </div>
+          <div class="auth-provider-help">
+            API key only
+            (<a
+              class="auth-help-link"
+              href="https://aistudio.google.com/apikey"
+              data-external-url="https://aistudio.google.com/apikey"
+            >create/fetch</a> from Google AI Studio).
+          </div>
+          <div class="auth-provider-input">
+            <input
+              type="password"
+              data-role="key-input"
+              aria-label="Google Gemini API key"
+              placeholder="AIza..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="button" class="auth-btn primary" data-role="save-btn">Save</button>
+            <button type="button" class="auth-btn" data-role="forget-btn" disabled>Forget</button>
+          </div>
+        </div>
+
+        <!-- OpenAI-compatible endpoint row: local models (Ollama, vLLM,
+             LM Studio, ...) and gateways (OpenRouter et al.) reached
+             over the Chat Completions API. Unlike the two rows above,
+             the endpoint URL and model name are set via environment
+             variables (there is no fixed catalog of real model ids to
+             offer a dropdown for) -- this row's key input only covers
+             the OPTIONAL API key some gateway services require. -->
+        <div class="auth-provider" data-provider="openai_compatible">
+          <div class="auth-provider-header">
+            <div class="auth-provider-name">Custom (OpenAI-compatible)</div>
+            <div class="auth-provider-status" data-role="status" role="status" aria-live="polite"></div>
+          </div>
+          <div class="auth-provider-help">
+            For local models (Ollama, vLLM, LM Studio, ...) or a
+            third-party gateway (OpenRouter and similar) that speaks
+            the Chat Completions API. Set
+            <code>SIFT_OPENAI_COMPATIBLE_BASE_URL</code> (e.g.
+            <code>http://localhost:11434/v1</code> for Ollama) and
+            <code>SIFT_OPENAI_COMPATIBLE_MODEL</code> (the model name
+            your server expects) as environment variables before
+            launching Sift. Most local servers need no key at all;
+            paste one below only if your endpoint requires it.
+          </div>
+          <div class="auth-provider-input">
+            <input
+              type="password"
+              data-role="key-input"
+              aria-label="Custom endpoint API key"
+              placeholder="optional — only if your endpoint requires one"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="button" class="auth-btn primary" data-role="save-btn">Save</button>
+            <button type="button" class="auth-btn" data-role="forget-btn" disabled>Forget</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="auth-status" class="auth-status" role="status" aria-live="polite"></div>
+
+      <div class="auth-footer">
+        <button type="button" class="landing-link" data-open-updates>
+          About &amp; updates
+        </button>
+        <button id="auth-continue-btn" type="button" class="landing-btn primary" disabled>
+          Continue
+        </button>
+        <!-- Inline hint that explains the disabled Continue state on
+             first launch, then flips to a confirmation once at least
+             one provider is configured. Toggled by renderAuthScreen
+             based on the ``any_authed`` flag in the auth payload. -->
+        <div id="auth-continue-hint" class="auth-continue-hint">
+          Save at least one provider to continue.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Landing view: shown when no cwd is set (launched without argv).
+       The researcher drops files or clicks a button to pick them. -->
+  <div id="landing" class="landing hidden">
+    <div id="landing-content" class="landing-card" tabindex="-1">
+      <div class="landing-hero">
+        <!-- Text stays sharp at OS scaling levels and adapts to both themes. -->
+        <div class="landing-wordmark" role="img" aria-label="Sift — private intelligence for your data">Sift</div>
+        <div class="landing-tagline">Local analysis. Controlled disclosure.</div>
+      </div>
+      <h1 class="landing-title">Start with your data</h1>
+      <p class="landing-lead">
+        Explore, clean, test, verify, and report without handing a model your
+        raw dataset. Raw data is processed on this machine. Choose a local
+        project or connect one specific source.
+      </p>
+
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-zone-main">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p class="drop-zone-hint">Drop data files here</p>
+          <p class="drop-zone-sub">CSV, Excel, Stata, SPSS, SAS, R, Parquet, and JSON</p>
+        </div>
+      </div>
+
+      <div class="landing-actions">
+        <button id="choose-files-btn" type="button" class="landing-btn primary">Open data files</button>
+        <button id="choose-folder-btn" type="button" class="landing-btn">Open a project folder</button>
+        <button id="landing-sources-btn" type="button" class="landing-btn">Database or service</button>
+      </div>
+
+      <section class="landing-use-cases" aria-labelledby="landing-use-cases-title">
+        <div class="landing-section-heading">
+          <div>
+            <h2 id="landing-use-cases-title">Common workflows</h2>
+            <p>Pick one to start with a useful first question. You can change it before sending.</p>
+          </div>
+        </div>
+        <div class="use-case-grid">
+          <button type="button" class="use-case-card" data-use-case="understand">
+            <span class="use-case-icon" aria-hidden="true">01</span>
+            <span><strong>Understand a new dataset</strong><small>Schema, missingness, distributions, duplicates, and quality risks</small></span>
+          </button>
+          <button type="button" class="use-case-card" data-use-case="verify">
+            <span class="use-case-icon" aria-hidden="true">02</span>
+            <span><strong>Verify an analysis</strong><small>Reproduce results, challenge assumptions, and run sensitivity checks</small></span>
+          </button>
+          <button type="button" class="use-case-card" data-use-case="compare">
+            <span class="use-case-icon" aria-hidden="true">03</span>
+            <span><strong>Compare groups or outcomes</strong><small>Choose defensible tests and report uncertainty, not just significance</small></span>
+          </button>
+          <button type="button" class="use-case-card" data-use-case="report">
+            <span class="use-case-icon" aria-hidden="true">04</span>
+            <span><strong>Prepare a research output</strong><small>Build evidence-linked tables, figures, summaries, and replication files</small></span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Evaluation on-ramp. Nobody should have to point unfamiliar
+           software at confidential data to find out whether it works.
+           The dataset is synthetic and generated locally. -->
+      <div class="landing-sample">
+        <button id="try-sample-btn" type="button" class="landing-link-btn">
+          Try Sift with sample data
+        </button>
+        <span class="landing-sample-note">
+          Synthetic data, generated on this machine. Nothing real, nothing uploaded.
+        </span>
+      </div>
+
+      <div id="landing-status" class="landing-status" role="status" aria-live="polite"></div>
+
+      <!-- Past sessions list: shown when ~/.sift-sessions/ has
+           anything in it, so a researcher who just wants to resume
+           doesn't have to re-upload or hunt through the chat-view
+           sidebar. Populated by JS (loadLandingSessions). -->
+      <div id="landing-sessions" class="landing-sessions hidden">
+        <div class="landing-sessions-header">Or resume a past session</div>
+        <div id="landing-sessions-list" class="landing-sessions-list"></div>
+      </div>
+
+      <!-- Bottom-of-card link to the auth screen. The auth screen
+           appears automatically only when no provider is configured;
+           this link lets a researcher manage additional providers. -->
+      <div class="landing-footer">
+        <button
+          id="manage-providers-btn"
+          type="button"
+          class="landing-link"
+        >Manage providers</button>
+        <button
+          id="landing-how-btn"
+          type="button"
+          class="landing-link"
+        >How Sift works</button>
+        <button type="button" class="landing-link" data-open-updates>About &amp; updates</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat view: shown once the session's working directory is set. -->
+  <div id="chat" class="chat hidden">
+    <!-- Left-side session browser. Collapsible so it doesn't eat
+         horizontal space when the researcher just wants to chat.
+         Populated by JS (loadSessions) from list_sessions(). The
+         right edge carries a thin drag-handle for resizing. -->
+    <aside id="sidebar" class="sidebar" aria-label="Research sessions">
+      <div class="sidebar-header">
+        <span class="sidebar-title">Sessions</span>
+        <button
+          type="button"
+          id="sidebar-toggle"
+          class="sidebar-toggle"
+          aria-label="Collapse sidebar"
+          aria-expanded="true"
+          aria-controls="sidebar-list"
+          title="Collapse sidebar"
+        >‹</button>
+      </div>
+      <button
+        type="button"
+        id="new-session-btn"
+        class="sidebar-new"
+        title="Start a new session"
+      >+ New session</button>
+      <div id="sidebar-list" class="sidebar-list"></div>
+      <div
+        id="sidebar-resize"
+        class="sidebar-resize"
+        title="Drag to resize"
+        aria-hidden="true"
+      ></div>
+    </aside>
+
+    <div class="chat-main">
+    <header class="topbar">
+      <div class="topbar-title">Sift</div>
+      <div class="topbar-meta" id="topbar-meta">
+        <span id="cwd-display"></span>
+      </div>
+      <div
+        class="topbar-assurance"
+        title="Raw datasets are processed locally. Only information allowed by the active permission tier is sent to the selected model."
+      >
+        <span class="assurance-dot" aria-hidden="true"></span>
+        <span>Local workspace</span>
+      </div>
+      <!-- Right-corner cluster: Files chip + theme toggle. The
+           Files chip lives next to the theme toggle so the
+           "uploaded files" view is reachable from the same place
+           every other top-bar control sits. Popup drops down
+           anchored to the chip's right edge so it doesn't render
+           off-screen. -->
+      <div class="topbar-right">
+        <button
+          type="button"
+          id="sources-chip"
+          class="topbar-chip"
+          title="Add data from files, databases, cloud storage, or research services"
+        >
+          <span>Add data</span>
+        </button>
+        <button
+          type="button"
+          id="data-chip"
+          class="topbar-chip hidden"
+          title="Profile of the datasets in this session (stays on this machine)"
+        >
+          <span>Data</span>
+        </button>
+        <button
+          type="button"
+          id="export-chip"
+          class="topbar-chip hidden"
+          title="Export replication package or disclosure report"
+        >
+          <span>Export</span>
+        </button>
+        <button
+          type="button"
+          id="checkpoints-chip"
+          class="topbar-chip hidden"
+          title="Bookmark and compare points in this analysis"
+        >
+          <span id="checkpoints-chip-label">Checkpoints</span>
+        </button>
+        <button
+          type="button"
+          id="ledger-chip"
+          class="topbar-chip hidden"
+          title="Privacy ledger: every disclosure sent to the model this session"
+        >
+          <span id="ledger-chip-label">Ledger</span>
+        </button>
+        <div class="permission-wrap">
+          <button
+            type="button"
+            id="files-chip"
+            class="topbar-chip hidden"
+            title="Files uploaded to this session"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+            aria-controls="files-popup"
+          >
+            <span id="files-chip-label">Files</span>
+            <span class="chip-arrow">▾</span>
+          </button>
+          <div id="files-popup" class="policy-popup hidden" role="dialog" aria-label="Session files"></div>
+        </div>
+        <button
+          type="button"
+          id="updates-btn"
+          class="topbar-toggle"
+          aria-label="About Sift and check for updates"
+          title="About Sift and check for updates"
+          data-open-updates
+        >i</button>
+        <button
+          type="button"
+          id="how-sift-works-btn"
+          class="topbar-toggle"
+          aria-label="How Sift works"
+          title="How Sift works"
+        >?</button>
+        <button
+          type="button"
+          id="theme-toggle"
+          class="topbar-toggle"
+          aria-label="Toggle light/dark"
+          title="Switch theme"
+        >
+          <span id="theme-toggle-icon">☾</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Environment health banner. Hidden by default; populated by
+         ``refreshDoctorBanner()`` from ``doctor_report()`` on
+         startup and again after an install_packages approval (see
+         app.js). Dismissible per the researcher's click, but
+         reappears on the next launch if the underlying issue is
+         still there -- dismissal is a "not now", not a permanent
+         mute, since a blocked runtime means the NEXT script
+         submission in that language will still fail silently
+         without this warning. -->
+    <div id="doctor-banner" class="doctor-banner hidden" role="status">
+      <div id="doctor-banner-text" class="doctor-banner-text"></div>
+      <button
+        type="button"
+        id="doctor-banner-dismiss"
+        class="doctor-banner-dismiss"
+        aria-label="Dismiss"
+        title="Dismiss for this session"
+      >×</button>
+    </div>
+
+    <main id="messages" class="messages" tabindex="-1" aria-label="Research transcript">
+      <div class="message system">
+        <div class="message-body" id="welcome">
+          Ready.
+        </div>
+      </div>
+    </main>
+
+    <footer class="composer">
+      <!-- Floating "scroll to latest" button. Anchored to the
+           composer's top edge so it sits just above the input area;
+           visibility is toggled by JS based on how far the
+           transcript is from the bottom. Clicking smooth-scrolls
+           the messages region to the bottom. -->
+      <button
+        type="button"
+        id="scroll-to-bottom"
+        class="scroll-to-bottom hidden"
+        aria-label="Scroll to latest"
+        title="Scroll to latest"
+      >↓</button>
+      <!-- Staged image thumbnails. Populated when the researcher
+           drops an image on the composer (or paste-pastes one).
+           Each thumb carries a remove button. The list sends along
+           with the next message; after send it's cleared. -->
+      <div id="compose-attachments" class="compose-attachments hidden"></div>
+      <form id="compose-form">
+        <textarea
+          id="compose-input"
+          placeholder="Ask Sift about this dataset"
+          aria-label="Message Sift"
+          rows="1"
+          autofocus
+        ></textarea>
+        <button
+          type="submit"
+          id="send-btn"
+          class="composer-action"
+          aria-label="Send"
+          title="Send (Enter)"
+        >
+          <!-- Plain Unicode inherits the control color and needs no icon asset. -->
+          <span aria-hidden="true">↵</span>
+        </button>
+        <button
+          type="button"
+          id="stop-btn"
+          class="composer-action stop hidden"
+          aria-label="Stop"
+          title="Stop"
+        >
+          <!-- Empty centered square — the outer button already
+               carries the light border; filling an inner glyph would
+               duplicate the shape. Screen readers get the label. -->
+          <span class="stop-square" aria-hidden="true"></span>
+        </button>
+      </form>
+
+      <!-- Status row: + button and Permission chip on the left,
+           model chip and context chip on the right, and a single
+           centered status notice in the middle. Transient messages
+           (session switched, model switched, can't delete active,
+           file added, etc.) land in #status-line as dim centered
+           text and auto-clear after a few seconds. Flanking
+           flex-spacers keep the notice precisely centered across
+           the row regardless of left/right chip widths. -->
+      <div class="composer-meta">
+        <button
+          type="button"
+          id="add-files-btn"
+          class="composer-chip composer-chip-action"
+          aria-label="Add data files or images"
+          title="Add data, scripts (.py, .do, .r), or images. Scripts and images travel with your next message; data files land in the session."
+        >+</button>
+        <div class="permission-wrap">
+          <button
+            type="button"
+            id="policy-chip"
+            class="composer-chip"
+            title="What Sift sees about each dataset. Click to change."
+            aria-haspopup="dialog"
+            aria-expanded="false"
+            aria-controls="policy-popup"
+          >
+            <span id="policy-chip-label">Permission</span>
+          </button>
+          <div id="policy-popup" class="policy-popup hidden" role="dialog" aria-label="Data permissions"></div>
+        </div>
+        <div class="composer-meta-spacer"></div>
+        <!-- Absolutely positioned at the center of the row — see
+             .status-line in style.css. Lives in the flow for DOM
+             locality but doesn't participate in the flex layout,
+             so left and right chip widths can't push it off
+             center. -->
+        <div id="status-line" class="status-line" aria-live="polite"></div>
+        <!-- Model picker. Click opens a popup with the selectable
+             models; the current label lives in #model-chip-label.
+             The popup uses the same .policy-popup + .permission-wrap
+             pattern as the permission chip so positioning and
+             outside-click dismissal work identically. -->
+        <div class="permission-wrap">
+          <button
+            type="button"
+            id="model-chip"
+            class="composer-chip"
+            title="Click to switch the active model"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+            aria-controls="model-popup"
+          >
+            <span id="model-chip-label">Model</span>
+          </button>
+          <div id="model-popup" class="policy-popup hidden" role="dialog" aria-label="Model and reasoning effort"></div>
+        </div>
+        <span
+          id="context-chip"
+          class="composer-chip context-chip hidden"
+          title="Tokens used in the current conversation context"
+        ></span>
+      </div>
+    </footer>
+    </div>  <!-- /chat-main -->
+  </div>
+
+  <!-- Transient notices render inline in #status-line inside the
+       composer footer (see .status-line in style.css). Errors that
+       belong to the conversation flow still go through appendError()
+       so they land in the transcript with the turn that produced
+       them. -->
+
+  <!-- Dataset profile modal. Computed locally and shown only here:
+       this panel is for the researcher looking at their own data.
+       It is never sent to the model — what the model may see stays
+       governed by the Permission tier and the SDC layer. -->
+  <div id="data-overlay" class="feedback-overlay hidden" role="dialog" aria-modal="true" aria-label="Dataset profile">
+    <div class="feedback-card ledger-card">
+      <div class="feedback-header">
+        Dataset profile
+        <button type="button" id="data-close" class="feedback-close" aria-label="Close">×</button>
+      </div>
+      <div class="feedback-body">
+        <div id="data-tabs" class="data-tabs" role="tablist" aria-label="Datasets"></div>
+        <div id="data-summary" class="data-summary" aria-live="polite"></div>
+        <div id="data-table-wrap" class="ledger-table-wrap"></div>
+        <p class="feedback-note">
+          Computed on this machine and shown only here. This panel is
+          not sent to the model; what the model can see about a dataset
+          is set by the Permission tier.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Evidence panel: "click a number, see where it came from".
+       Opened either from a citation marker Sift emits inline in its
+       prose (rendered as a button by markdown.js) or a "View
+       evidence" action on a result card. Every field is a re-read of
+       data already stored for that result — dataset, sample size,
+       the canonical table, deterministic verification, a Challenge
+       Finding verdict when the result was part of a re-estimation
+       batch, and the generated code. Nothing new crosses the
+       privacy boundary to build this; it is the researcher looking
+       again at what the model already saw once. -->
+  <div id="evidence-overlay" class="feedback-overlay hidden" role="dialog" aria-modal="true" aria-label="Evidence">
+    <div class="feedback-card ledger-card">
+      <div class="feedback-header">
+        Evidence
+        <button type="button" id="evidence-close" class="feedback-close" aria-label="Close">×</button>
+      </div>
+      <div class="feedback-body">
+        <div id="evidence-content" aria-live="polite">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export modal. Two researcher-facing outputs, both built from
+       material already on disk (stored sanitized results + the
+       release ledger). Neither is a model capability. -->
+  <div id="export-overlay" class="feedback-overlay hidden" role="dialog" aria-modal="true" aria-label="Export">
+    <div class="feedback-card">
+      <div class="feedback-header">
+        Export
+        <button type="button" id="export-close" class="feedback-close" aria-label="Close">×</button>
+      </div>
+      <div class="feedback-body">
+        <div class="export-option">
+          <button type="button" id="export-replication" class="feedback-button feedback-button-primary">Replication package</button>
+          <p class="feedback-note">
+            Scripts, disclosure-controlled results, Markdown and LaTeX
+            (booktabs) tables, methods notes, software versions, and the
+            disclosure record — as a folder you can attach to a paper.
+            Contains no raw data.
+          </p>
+        </div>
+        <div class="export-option">
+          <button type="button" id="export-codebook" class="feedback-button">Codebook</button>
+          <p class="feedback-note">
+            A data dictionary for every dataset in this session:
+            variables, labels, value labels, types, missingness and
+            ranges — Markdown plus CSV. Built locally from the files'
+            own metadata; nothing is sent to the model.
+          </p>
+        </div>
+        <div class="export-option">
+          <button type="button" id="export-report" class="feedback-button">Analysis report</button>
+          <button type="button" id="export-report-pdf" class="feedback-button">PDF</button>
+          <button type="button" id="export-report-pptx" class="feedback-button">Slides</button>
+          <p class="feedback-note">
+            A readable report of this session: findings with their
+            tables, verification verdicts (warnings first), figures
+            from Sift's plot helpers, and the disclosure record.
+            Assembled from stored results by code; no model-written
+            prose. Same content, three formats: self-contained HTML
+            plus Markdown, a paginated PDF, or a one-finding-per-slide
+            PowerPoint deck.
+          </p>
+        </div>
+        <div class="export-option">
+          <button type="button" id="export-disclosure" class="feedback-button">Disclosure report</button>
+          <p class="feedback-note">
+            A reviewable record of everything released to the model this
+            session, for an IRB or data-governance office. States its own
+            limits: it records what was released, and does not bound what
+            could be inferred from the releases combined.
+          </p>
+        </div>
+        <p id="export-result" class="feedback-note" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analysis checkpoints modal. A checkpoint is a
+       non-destructive bookmark of the current turn + the result_ids
+       visible at that point -- see checkpoints.py's module docstring.
+       Restore reuses the existing rewind_to bridge method (with all
+       its safety properties); Compare reads only already-model-
+       visible result metadata (label/analysis_type/source_dataset),
+       never sanitized_payload contents, so nothing new crosses the
+       privacy boundary to build this view. -->
+  <div id="checkpoints-overlay" class="feedback-overlay hidden" role="dialog" aria-modal="true" aria-label="Checkpoints">
+    <div class="feedback-card ledger-card">
+      <div class="feedback-header">
+        Checkpoints
+        <button type="button" id="checkpoints-close" class="feedback-close" aria-label="Close">×</button>
+      </div>
+      <div class="feedback-body">
+        <p class="feedback-note">
+          Bookmark the current point in this analysis so you can come
+          back to it later, or compare what happened down two
+          different paths. Restoring a checkpoint rewinds this session
+          to that point -- like editing a past message, it starts a
+          new branch from there.
+        </p>
+        <div class="checkpoints-create-row">
+          <input
+            type="text"
+            id="checkpoints-label-input"
+            class="checkpoints-label-input"
+            aria-label="Checkpoint label"
+            placeholder="Label this point (e.g. \"before dropping outliers\")"
+            maxlength="120"
+          />
+          <button type="button" id="checkpoints-create-btn" class="feedback-button feedback-button-primary">Save checkpoint</button>
+        </div>
+        <p id="checkpoints-create-result" class="feedback-note" aria-live="polite"></p>
+        <div id="checkpoints-list" class="checkpoints-list" aria-live="polite"></div>
+        <div class="checkpoints-compare-row">
+          <button type="button" id="checkpoints-compare-btn" class="feedback-button" disabled>Compare selected</button>
+          <span id="checkpoints-compare-hint" class="feedback-note">Pick two checkpoints below to compare.</span>
+        </div>
+        <div id="checkpoints-compare-result" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Privacy ledger modal. Opened from the Ledger chip in the
+       topbar. Read-only audit view: one row per disclosure that
+       crossed to the model this session, plus the hash-chain
+       verdict. Data is local; nothing here triggers network. -->
+  <!-- Privacy Inspector: the researcher's single privacy-facing
+       screen. Three tabs over data this session's mechanisms already
+       compute -- the append-only disclosure ledger (what actually
+       crossed to the model), adaptive-suppression / differential-
+       privacy budget status (privacy_budget.py / differential_privacy.py),
+       and query-fingerprinting pattern findings (query_fingerprint.py).
+       Nothing rendered here is sent to the model; it's the audit
+       surface for the researcher looking at their own session. -->
+  <div id="ledger-overlay" class="feedback-overlay hidden" role="dialog" aria-modal="true" aria-label="Privacy Inspector">
+    <div class="feedback-card ledger-card">
+      <div class="feedback-header">
+        Privacy Inspector
+        <button type="button" id="ledger-close" class="feedback-close" aria-label="Close">×</button>
+      </div>
+      <div class="feedback-body">
+        <div id="privacy-tabs" class="data-tabs" role="tablist" aria-label="Privacy Inspector sections">
+          <button type="button" id="privacy-tab-ledger" class="data-tab active" role="tab" aria-selected="true">Ledger</button>
+          <button type="button" id="privacy-tab-budgets" class="data-tab" role="tab" aria-selected="false">Budgets</button>
+          <button type="button" id="privacy-tab-patterns" class="data-tab" role="tab" aria-selected="false">Patterns</button>
+        </div>
+        <div id="privacy-panel-ledger">
+          <p class="feedback-note" id="ledger-summary">
+            Every disclosure sent to the model this session is recorded
+            in an append-only, hash-chained log on this machine.
+          </p>
+          <div id="ledger-table-wrap" class="ledger-table-wrap"></div>
+        </div>
+        <div id="privacy-panel-budgets" class="hidden">
+          <p class="feedback-note">
+            Adaptive suppression tightens SDC thresholds for a
+            dataset as it accumulates granted releases this session;
+            differential-privacy epsilon is a separate, per-dataset
+            opt-in for the <code>noisy_count</code> request type.
+            Neither is an access control on its own -- see the
+            Ledger tab for what actually crossed to the model.
+          </p>
+          <div id="privacy-budgets-wrap"></div>
+        </div>
+        <div id="privacy-panel-patterns" class="hidden">
+          <p class="feedback-note">
+            Advisory patterns in this session's disclosures --
+            repeated queries, many different fact types about one
+            variable, or an N-drift signature consistent with subset
+            differencing. Nothing here was blocked; these are
+            surfaced for the researcher to review, the same notes
+            the model itself sees inline when a call completes one
+            of these patterns.
+          </p>
+          <div id="privacy-patterns-wrap"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data-source hub. Connector manifests, readiness, and trust wording come
+       from the backend; this shell only renders them and collects explicit
+       researcher selections. Credentials are saved to the OS vault before an
+       import and never enter the model conversation. -->
+  <div id="sources-overlay" class="feedback-overlay hidden" role="dialog" aria-modal="true" aria-label="Choose a data source">
+    <div class="feedback-card sources-card">
+      <div class="feedback-header sources-header">
+        <div>
+          <div class="sources-title">Choose a data source</div>
+          <div class="sources-subtitle">Sift copies only the files or query result you select into this local workspace.</div>
+        </div>
+        <button type="button" id="sources-close" class="feedback-close" aria-label="Close">×</button>
+      </div>
+      <div class="source-assurance" role="note">
+        <span class="assurance-dot" aria-hidden="true"></span>
+        Connections run on this machine. Credentials stay in the operating system vault. Connected accounts are never exposed as model tools.
+      </div>
+      <div class="source-tabs" role="tablist" aria-label="Data source types">
+        <button type="button" class="source-tab active" data-source-tab="local" role="tab" aria-selected="true">Files</button>
+        <button type="button" class="source-tab" data-source-tab="database" role="tab" aria-selected="false">Databases</button>
+        <button type="button" class="source-tab" data-source-tab="cloud" role="tab" aria-selected="false">Cloud storage</button>
+        <button type="button" class="source-tab" data-source-tab="research" role="tab" aria-selected="false">Research services</button>
+      </div>
+      <div class="sources-body">
+        <div id="source-use-case-context" class="source-use-case-context hidden"></div>
+        <section id="source-panel-local" class="source-panel">
+          <div class="source-path-grid">
+            <button type="button" id="source-local-files" class="source-path-card">
+              <span class="source-path-icon" aria-hidden="true">⇧</span>
+              <strong>Choose files</strong>
+              <span>CSV, Excel, Stata, SPSS, SAS, R, Parquet, JSON, and more</span>
+            </button>
+            <button type="button" id="source-local-folder" class="source-path-card">
+              <span class="source-path-icon" aria-hidden="true">⌑</span>
+              <strong>Open a project folder</strong>
+              <span>Work directly in an existing local research directory</span>
+            </button>
+            <button type="button" id="source-sample" class="source-path-card">
+              <span class="source-path-icon" aria-hidden="true">◇</span>
+              <strong>Try synthetic data</strong>
+              <span>Learn the complete workflow without using real data</span>
+            </button>
+          </div>
+        </section>
+        <section id="source-panel-catalog" class="source-panel hidden">
+          <div class="source-catalog-toolbar">
+            <div>
+              <div id="source-catalog-title" class="source-catalog-title">Choose a connector</div>
+              <div id="source-catalog-description" class="source-catalog-description"></div>
+            </div>
+            <label class="source-search">
+              <input id="source-search-input" type="search" placeholder="Search connectors" aria-label="Search connectors" autocomplete="off" />
+            </label>
+          </div>
+          <div id="source-grid" class="source-grid" aria-label="Available connectors"></div>
+          <div id="source-empty" class="source-empty hidden">No connectors match that search.</div>
+          <div id="source-config" class="source-config hidden"></div>
+        </section>
+        <div id="sources-status" class="sources-status" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- First-run and always-available product walkthrough. It explains the
+       actual trust boundaries and the distinct ways into the product rather
+       than relying on promotional claims or hidden conventions. -->
+  <div id="walkthrough-overlay" class="feedback-overlay hidden" role="dialog" aria-modal="true" aria-label="How Sift works">
+    <div class="feedback-card walkthrough-card">
+      <div class="feedback-header">
+        How Sift works
+        <button type="button" id="walkthrough-close" class="feedback-close" aria-label="Close">×</button>
+      </div>
+      <div class="walkthrough-progress" aria-hidden="true"></div>
+      <div id="walkthrough-content" class="walkthrough-content"></div>
+      <div class="walkthrough-footer">
+        <button type="button" id="walkthrough-back" class="feedback-button">Back</button>
+        <span id="walkthrough-count" class="walkthrough-count"></span>
+        <button type="button" id="walkthrough-next" class="feedback-button feedback-button-primary">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="updates-overlay" class="feedback-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="updates-title">
+    <div class="feedback-card updates-card">
+      <div class="feedback-header">
+        <span id="updates-title">About Sift</span>
+        <button type="button" id="updates-close" class="feedback-close" aria-label="Close">×</button>
+      </div>
+      <div class="updates-copy">
+        <p>Private research analysis with controlled disclosure. Raw datasets stay in the local workspace; only information allowed by the active permission tier can reach the selected model.</p>
+        <dl class="updates-details">
+          <dt>Installed version</dt><dd id="updates-version">Checking…</dd>
+          <dt>Update channel</dt><dd id="updates-channel">Checking…</dd>
+        </dl>
+        <p class="updates-note">Update checks happen only when you choose them. Sift may use your operating system’s protected credential store to remember the highest verified version and block rollback attacks.</p>
+        <div id="updates-status" class="updates-status" role="status" aria-live="polite"></div>
+        <div id="updates-path" class="updates-path hidden"></div>
+      </div>
+      <div class="feedback-footer">
+        <button type="button" id="updates-check" class="feedback-button feedback-button-primary">Check for updates</button>
+        <button type="button" id="updates-download" class="feedback-button feedback-button-primary hidden">Download and verify</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyboard shortcuts overlay. Hidden by default, shown when the
+       researcher presses `?` outside the composer. -->
+  <div id="shortcuts-overlay" class="shortcuts-overlay hidden" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+    <div class="shortcuts-card">
+      <div class="shortcuts-header">
+        Keyboard shortcuts
+        <button type="button" id="shortcuts-close" class="shortcuts-close" aria-label="Close">×</button>
+      </div>
+      <dl class="shortcuts-list">
+        <dt><kbd>Enter</kbd></dt><dd>Send message</dd>
+        <dt><kbd>Shift</kbd> + <kbd>Enter</kbd></dt><dd>New line in composer</dd>
+        <dt><kbd data-shortcut-mod>⌘</kbd> + <kbd>K</kbd></dt><dd>Focus composer</dd>
+        <dt><kbd data-shortcut-mod>⌘</kbd> + <kbd>R</kbd></dt><dd>Reload</dd>
+        <dt><kbd>↑</kbd> / <kbd>↓</kbd></dt><dd>Move between sessions (when sidebar focused)</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Open focused session</dd>
+        <dt><kbd>Delete</kbd></dt><dd>Delete focused session</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Close popups / this panel</dd>
+        <dt><kbd>?</kbd></dt><dd>Show this panel</dd>
+      </dl>
+    </div>
+  </div>
+
+  <script src="markdown.js"></script>
+  <script src="slash_commands.js"></script>
+  <script src="desktop-platform.js"></script>
+  <script src="app.js"></script>
+  <script src="sources.js"></script>
+</body>
+</html>

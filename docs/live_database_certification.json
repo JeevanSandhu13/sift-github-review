@@ -1,0 +1,944 @@
+{
+  "checked_at": "2026-08-24T21:21:08.276193+00:00",
+  "disposable_scope_confirmed": false,
+  "local": {
+    "duckdb": "covered_by_tests/live/test_database_live.py",
+    "sqlite": "covered_by_tests/live/test_database_live.py"
+  },
+  "product_release_blocking": false,
+  "program": "optional_external_compatibility",
+  "provisioning_responsibility": "researcher_or_database_operator",
+  "qualification_context": {
+    "certification_harness_sha256": "5efca38a636ce18df7c145d024c16f06e60dc328ca367329ee7240fc408b8381",
+    "dependency_lock_sha256": "7b29ba2b6b58dc0f13a3590441e6a5bc9e20977cec9776aef7ed68e57b04e7bd",
+    "pyproject_sha256": "c433af5ac5370c0ce9835c93dac94c3a00d04ab542adb42294ba889c7dad6f4c",
+    "qualification_context_sha256": "02e2a19419e2e703481322b6925e4a306d9d5d87aa3affa9df2091d5e65e8654",
+    "release_artifact_path": "dist/sift-0.1.0-py3-none-any.whl",
+    "release_artifact_sha256": "cab8d4bce3306fa47edca6c2c1905a00a63ccda456227d1a442532e41b54c499",
+    "release_package_matches_source": true,
+    "release_package_sha256": "2bd8bca5ecd77682c0fa00740ad85db2100de74036844777f8cac9c7a4fccc87",
+    "schema_version": 1,
+    "source_package_sha256": "2bd8bca5ecd77682c0fa00740ad85db2100de74036844777f8cac9c7a4fccc87"
+  },
+  "remote_scenarios": [
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "postgresql",
+      "claim": "Certify PostgreSQL.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_058_URI"
+      ],
+      "mode": "core",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-058"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "postgresql",
+      "claim": "PostgreSQL verified TLS and hostname rejection.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_059_URI",
+        "SIFT_LIVE_S04_059_NEGATIVE_HOSTNAME_URI"
+      ],
+      "mode": "tls_hostname",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-059"
+    },
+    {
+      "authentication_assurance": {
+        "certificate": "mechanism",
+        "managed": "session_principal",
+        "password": "session_principal"
+      },
+      "authentication_context_semantics": "Session user plus current-connection TLS client-certificate state; PostgreSQL does not distinguish a managed/IAM token passed through the password protocol from an ordinary password.",
+      "authentication_variants": [
+        "password",
+        "certificate",
+        "managed"
+      ],
+      "backend": "postgresql",
+      "claim": "PostgreSQL password, certificate, and managed authentication.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_060_PASSWORD_URI",
+        "SIFT_LIVE_S04_060_PASSWORD_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_060_CERTIFICATE_URI",
+        "SIFT_LIVE_S04_060_CERTIFICATE_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_060_MANAGED_URI",
+        "SIFT_LIVE_S04_060_MANAGED_EXPECTED_ROW_JSON"
+      ],
+      "mode": "auth",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-060"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "postgresql",
+      "claim": "PostgreSQL-specific type fidelity.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_061_URI",
+        "SIFT_LIVE_S04_061_EXPECTED_SCHEMA_JSON",
+        "SIFT_LIVE_S04_061_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_061_FIXTURE_MANIFEST_JSON"
+      ],
+      "mode": "types",
+      "required_fixture_fields": [
+        "integer_value",
+        "bigint_value",
+        "numeric_value",
+        "uuid_value",
+        "jsonb_value",
+        "array_value",
+        "timestamptz_value",
+        "interval_value",
+        "bytea_value"
+      ],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-061"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "postgresql",
+      "claim": "PostgreSQL server-enforced read-only transaction.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_062_URI"
+      ],
+      "mode": "read_only",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-062"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "mysql",
+      "claim": "Certify MySQL.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_063_URI"
+      ],
+      "mode": "core",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-063"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "mariadb",
+      "claim": "Certify MariaDB separately.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_064_URI"
+      ],
+      "mode": "core",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-064"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "mysql",
+      "claim": "MySQL certificate and hostname verification.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_065_URI",
+        "SIFT_LIVE_S04_065_NEGATIVE_HOSTNAME_URI"
+      ],
+      "mode": "tls_hostname",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-065"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "mysql",
+      "claim": "MySQL unsigned integer, enum, set, JSON, and zero-date fidelity.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_066_URI",
+        "SIFT_LIVE_S04_066_EXPECTED_SCHEMA_JSON",
+        "SIFT_LIVE_S04_066_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_066_FIXTURE_MANIFEST_JSON"
+      ],
+      "mode": "types",
+      "required_fixture_fields": [
+        "unsigned_integer",
+        "enum_value",
+        "set_value",
+        "json_value",
+        "zero_date"
+      ],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-066"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "mysql",
+      "claim": "MySQL server-enforced read-only transaction.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_067_URI"
+      ],
+      "mode": "read_only",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-067"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "mssql",
+      "claim": "Certify SQL Server.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_068_URI"
+      ],
+      "mode": "core",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-068"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "mssql",
+      "claim": "Microsoft ODBC Driver 18 runtime behavior.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_069_URI"
+      ],
+      "mode": "driver_18",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-069"
+    },
+    {
+      "authentication_assurance": {
+        "entra": "mechanism"
+      },
+      "authentication_context_semantics": "Original login and the current connection's server-reported authentication scheme.",
+      "authentication_variants": [
+        "entra"
+      ],
+      "backend": "mssql",
+      "claim": "SQL Server Entra authentication.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_070_ENTRA_URI",
+        "SIFT_LIVE_S04_070_ENTRA_EXPECTED_ROW_JSON"
+      ],
+      "mode": "auth",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-070"
+    },
+    {
+      "authentication_assurance": {
+        "windows": "mechanism"
+      },
+      "authentication_context_semantics": "Original login and the current connection's server-reported authentication scheme.",
+      "authentication_variants": [
+        "windows"
+      ],
+      "backend": "mssql",
+      "claim": "SQL Server Windows authentication.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_071_WINDOWS_URI",
+        "SIFT_LIVE_S04_071_WINDOWS_EXPECTED_ROW_JSON"
+      ],
+      "mode": "auth",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-071"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "mssql",
+      "claim": "SQL Server datetimeoffset, money, GUID, XML, and spatial fidelity.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_072_URI",
+        "SIFT_LIVE_S04_072_EXPECTED_SCHEMA_JSON",
+        "SIFT_LIVE_S04_072_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_072_FIXTURE_MANIFEST_JSON"
+      ],
+      "mode": "types",
+      "required_fixture_fields": [
+        "datetimeoffset_value",
+        "money_value",
+        "guid_value",
+        "xml_value",
+        "spatial_value"
+      ],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-072"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "mssql",
+      "claim": "SQL Server query cancellation.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_073_URI",
+        "SIFT_LIVE_S04_073_CANCEL_QUERY"
+      ],
+      "mode": "cancellation",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-073"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "oracle",
+      "claim": "Certify Oracle.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_074_URI"
+      ],
+      "mode": "core",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-074"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "oracle",
+      "claim": "Oracle TCPS enforcement.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_075_URI",
+        "SIFT_LIVE_S04_075_INSECURE_URI"
+      ],
+      "mode": "secure_policy",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-075"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "oracle",
+      "claim": "Oracle TLS hostname verification.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_076_URI",
+        "SIFT_LIVE_S04_076_NEGATIVE_HOSTNAME_URI"
+      ],
+      "mode": "tls_hostname",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-076"
+    },
+    {
+      "authentication_assurance": {
+        "wallet_mtls": "mechanism"
+      },
+      "authentication_context_semantics": "Oracle authenticated identity and authentication method from the current USERENV context.",
+      "authentication_variants": [
+        "wallet_mtls"
+      ],
+      "backend": "oracle",
+      "claim": "Oracle wallet and mutual-TLS connection.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_077_WALLET_MTLS_URI",
+        "SIFT_LIVE_S04_077_WALLET_MTLS_EXPECTED_ROW_JSON"
+      ],
+      "mode": "auth",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-077"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "oracle",
+      "claim": "Oracle decimal, timestamp, interval, CLOB, and BLOB fidelity.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_078_URI",
+        "SIFT_LIVE_S04_078_EXPECTED_SCHEMA_JSON",
+        "SIFT_LIVE_S04_078_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_078_FIXTURE_MANIFEST_JSON"
+      ],
+      "mode": "types",
+      "required_fixture_fields": [
+        "decimal_value",
+        "timestamp_value",
+        "interval_value",
+        "clob_value",
+        "blob_value"
+      ],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-078"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "oracle",
+      "claim": "Oracle server-enforced read-only transaction.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_079_URI"
+      ],
+      "mode": "read_only",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-079"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "snowflake",
+      "claim": "Certify Snowflake.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_080_URI"
+      ],
+      "mode": "core",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-080"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "snowflake",
+      "claim": "Snowflake fail-closed OCSP enforcement.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_081_URI",
+        "SIFT_LIVE_S04_081_INSECURE_URI",
+        "SIFT_LIVE_S04_081_OCSP_FAILURE_URI"
+      ],
+      "mode": "secure_policy",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-081"
+    },
+    {
+      "authentication_assurance": {
+        "key_pair": "session_principal",
+        "oauth": "session_principal",
+        "password": "session_principal",
+        "sso": "session_principal"
+      },
+      "authentication_context_semantics": "Principal name and type which started the Snowflake session; Snowflake SQL does not portably attest the client credential type.",
+      "authentication_variants": [
+        "oauth",
+        "sso",
+        "key_pair",
+        "password"
+      ],
+      "backend": "snowflake",
+      "claim": "Snowflake OAuth, SSO, key-pair, and password authentication.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_082_OAUTH_URI",
+        "SIFT_LIVE_S04_082_OAUTH_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_082_SSO_URI",
+        "SIFT_LIVE_S04_082_SSO_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_082_KEY_PAIR_URI",
+        "SIFT_LIVE_S04_082_KEY_PAIR_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_082_KEY_PAIR_PRIVATE_KEY_PEM",
+        "SIFT_LIVE_S04_082_PASSWORD_URI",
+        "SIFT_LIVE_S04_082_PASSWORD_EXPECTED_ROW_JSON"
+      ],
+      "mode": "auth",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-082"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "snowflake",
+      "claim": "Snowflake warehouse, database, schema, and role selection.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_083_URI",
+        "SIFT_LIVE_S04_083_EXPECTED_ROW_JSON"
+      ],
+      "mode": "result",
+      "required_fixture_fields": [
+        "warehouse",
+        "database",
+        "schema",
+        "role"
+      ],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-083"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "snowflake",
+      "claim": "Snowflake variant, array, object, geography, and timestamp fidelity.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_084_URI",
+        "SIFT_LIVE_S04_084_EXPECTED_SCHEMA_JSON",
+        "SIFT_LIVE_S04_084_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_084_FIXTURE_MANIFEST_JSON"
+      ],
+      "mode": "types",
+      "required_fixture_fields": [
+        "variant_value",
+        "array_value",
+        "object_value",
+        "geography_value",
+        "timestamp_value"
+      ],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-084"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "snowflake",
+      "claim": "Snowflake cancellation followed by verified warehouse suspension.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_085_URI",
+        "SIFT_LIVE_S04_085_CANCEL_QUERY"
+      ],
+      "mode": "warehouse_cancellation",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-085"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "bigquery",
+      "claim": "Certify BigQuery.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_086_URI"
+      ],
+      "mode": "core",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-086"
+    },
+    {
+      "authentication_assurance": {
+        "adc": "session_principal"
+      },
+      "authentication_context_semantics": "Query principal and executing project; BigQuery SQL does not expose whether ADC resolved to user, service-account, or federated credentials.",
+      "authentication_variants": [
+        "adc"
+      ],
+      "backend": "bigquery",
+      "claim": "BigQuery Application Default Credentials.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_087_ADC_URI",
+        "SIFT_LIVE_S04_087_ADC_EXPECTED_ROW_JSON"
+      ],
+      "mode": "auth",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-087"
+    },
+    {
+      "authentication_assurance": {
+        "user": "session_principal",
+        "workload_identity": "session_principal"
+      },
+      "authentication_context_semantics": "Query principal and executing project; BigQuery SQL does not expose whether ADC resolved to user, service-account, or federated credentials.",
+      "authentication_variants": [
+        "user",
+        "workload_identity"
+      ],
+      "backend": "bigquery",
+      "claim": "BigQuery user credentials and workload identity.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_088_USER_URI",
+        "SIFT_LIVE_S04_088_USER_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_088_WORKLOAD_IDENTITY_URI",
+        "SIFT_LIVE_S04_088_WORKLOAD_IDENTITY_EXPECTED_ROW_JSON"
+      ],
+      "mode": "auth",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-088"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "bigquery",
+      "claim": "BigQuery project and billing-project behavior.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_089_URI",
+        "SIFT_LIVE_S04_089_EXPECTED_ROW_JSON"
+      ],
+      "mode": "result",
+      "required_fixture_fields": [
+        "project",
+        "billing_project"
+      ],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-089"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "bigquery",
+      "claim": "BigQuery dry-run byte estimates.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_090_URI",
+        "SIFT_LIVE_S04_090_QUERY"
+      ],
+      "mode": "preview",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-090"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "bigquery",
+      "claim": "BigQuery record, repeated, geography, numeric, and bignumeric fidelity.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_091_URI",
+        "SIFT_LIVE_S04_091_EXPECTED_SCHEMA_JSON",
+        "SIFT_LIVE_S04_091_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_091_FIXTURE_MANIFEST_JSON"
+      ],
+      "mode": "types",
+      "required_fixture_fields": [
+        "record_value",
+        "repeated_value",
+        "geography_value",
+        "numeric_value",
+        "bignumeric_value"
+      ],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-091"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "bigquery",
+      "claim": "BigQuery job cancellation.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_092_URI",
+        "SIFT_LIVE_S04_092_CANCEL_QUERY"
+      ],
+      "mode": "cancellation",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-092"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "redshift",
+      "claim": "Certify Redshift.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_093_URI"
+      ],
+      "mode": "core",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-093"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "redshift",
+      "claim": "Redshift verified TLS and hostname rejection.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_094_URI",
+        "SIFT_LIVE_S04_094_NEGATIVE_HOSTNAME_URI"
+      ],
+      "mode": "tls_hostname",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-094"
+    },
+    {
+      "authentication_assurance": {
+        "iam": "mechanism"
+      },
+      "authentication_context_semantics": "Database user plus either the globally authenticated IAM session ARN or Redshift's IAM:/IAMA: temporary-credential user marker.",
+      "authentication_variants": [
+        "iam"
+      ],
+      "backend": "redshift",
+      "claim": "Redshift IAM authentication.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_095_IAM_URI",
+        "SIFT_LIVE_S04_095_IAM_EXPECTED_ROW_JSON"
+      ],
+      "mode": "auth",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-095"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "redshift",
+      "claim": "Redshift decimal and SUPER/semi-structured fidelity.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_096_URI",
+        "SIFT_LIVE_S04_096_EXPECTED_SCHEMA_JSON",
+        "SIFT_LIVE_S04_096_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_096_FIXTURE_MANIFEST_JSON"
+      ],
+      "mode": "types",
+      "required_fixture_fields": [
+        "decimal_value",
+        "super_value"
+      ],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-096"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "redshift",
+      "claim": "Redshift query cancellation.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_097_URI",
+        "SIFT_LIVE_S04_097_CANCEL_QUERY"
+      ],
+      "mode": "cancellation",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-097"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "databricks",
+      "claim": "Certify Databricks SQL.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_098_URI"
+      ],
+      "mode": "core",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-098"
+    },
+    {
+      "authentication_assurance": {
+        "oauth_u2m": "session_principal"
+      },
+      "authentication_context_semantics": "Databricks current/session user (a service-principal UUID for service principals); SQL does not portably expose OAuth versus token use.",
+      "authentication_variants": [
+        "oauth_u2m"
+      ],
+      "backend": "databricks",
+      "claim": "Databricks OAuth user-to-machine authentication.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_099_OAUTH_U2M_URI",
+        "SIFT_LIVE_S04_099_OAUTH_U2M_EXPECTED_ROW_JSON"
+      ],
+      "mode": "auth",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-099"
+    },
+    {
+      "authentication_assurance": {
+        "oauth_m2m": "session_principal"
+      },
+      "authentication_context_semantics": "Databricks current/session user (a service-principal UUID for service principals); SQL does not portably expose OAuth versus token use.",
+      "authentication_variants": [
+        "oauth_m2m"
+      ],
+      "backend": "databricks",
+      "claim": "Databricks OAuth machine-to-machine authentication.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_100_OAUTH_M2M_URI",
+        "SIFT_LIVE_S04_100_OAUTH_M2M_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_100_OAUTH_M2M_CLIENT_ID",
+        "SIFT_LIVE_S04_100_OAUTH_M2M_CLIENT_SECRET"
+      ],
+      "mode": "auth",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-100"
+    },
+    {
+      "authentication_assurance": {
+        "token": "session_principal"
+      },
+      "authentication_context_semantics": "Databricks current/session user (a service-principal UUID for service principals); SQL does not portably expose OAuth versus token use.",
+      "authentication_variants": [
+        "token"
+      ],
+      "backend": "databricks",
+      "claim": "Databricks token authentication.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_101_TOKEN_URI",
+        "SIFT_LIVE_S04_101_TOKEN_EXPECTED_ROW_JSON"
+      ],
+      "mode": "auth",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-101"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "databricks",
+      "claim": "Databricks catalogs, schemas, and Unity Catalog permissions.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_102_URI",
+        "SIFT_LIVE_S04_102_EXPECTED_METADATA_JSON",
+        "SIFT_LIVE_S04_102_DENIED_METADATA_JSON"
+      ],
+      "mode": "metadata",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-102"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "databricks",
+      "claim": "Databricks array, map, struct, decimal, and timestamp fidelity.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_103_URI",
+        "SIFT_LIVE_S04_103_EXPECTED_SCHEMA_JSON",
+        "SIFT_LIVE_S04_103_EXPECTED_ROW_JSON",
+        "SIFT_LIVE_S04_103_FIXTURE_MANIFEST_JSON"
+      ],
+      "mode": "types",
+      "required_fixture_fields": [
+        "array_value",
+        "map_value",
+        "struct_value",
+        "decimal_value",
+        "timestamp_value"
+      ],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-103"
+    },
+    {
+      "authentication_assurance": {},
+      "authentication_context_semantics": "",
+      "authentication_variants": [],
+      "backend": "databricks",
+      "claim": "Databricks CloudFetch transfer and cancellation.",
+      "configured": false,
+      "missing_environment": [
+        "SIFT_LIVE_S04_104_URI",
+        "SIFT_LIVE_S04_104_QUERY",
+        "SIFT_LIVE_S04_104_EXPECTED_MIN_ROWS",
+        "SIFT_LIVE_S04_104_CANCEL_QUERY"
+      ],
+      "mode": "cloudfetch",
+      "required_fixture_fields": [],
+      "status": "blocked_missing_disposable_instance_credentials_or_fixture",
+      "step_id": "S04-104"
+    }
+  ],
+  "run_mode": "strict_all_scenarios",
+  "runtime_provenance": {
+    "driver_distributions": {
+      "PyMySQL": "1.2.0",
+      "SQLAlchemy": "2.0.52",
+      "databricks-sdk": "0.133.0",
+      "databricks-sql-connector": "4.4.0",
+      "databricks-sqlalchemy": "2.0.10",
+      "oracledb": "4.0.2",
+      "psycopg": "3.3.4",
+      "pyodbc": "5.3.0",
+      "redshift-connector": "2.1.16",
+      "snowflake-sqlalchemy": "1.11.0",
+      "sqlalchemy-bigquery": "1.17.2"
+    },
+    "machine": "arm64",
+    "os": "Darwin",
+    "os_release": "25.6.0",
+    "python_implementation": "CPython",
+    "python_version": "3.12.11",
+    "schema_version": 1,
+    "sha256": "9ffb85ccbaa28a9995363f2b0cc1aa3a1e4e00c6afb0fff168c690980df58ec3"
+  },
+  "schema_version": 5,
+  "scope": "Optional disposable live-database compatibility certification",
+  "security_note": "Connection values are never serialized. Remote certification requires synthetic fixtures, disposable identities, and explicit write-probe acknowledgement.",
+  "selected_authentication_variants": [],
+  "selected_scenarios": [],
+  "selected_test_exit_codes": {},
+  "status": "blocked",
+  "strict_test_exit_code": null,
+  "write_probe_acknowledged": false
+}

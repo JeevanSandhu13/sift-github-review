@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# Virtualenvs
+.venv/
+venv/
+.uv-python/
+
+# Locally managed analysis runtimes
+.r-libs/
+.qualification-r-library/
+
+# Build artifacts
+build/
+dist/
+*.dmg
+*.app
+*.msi
+*.msix
+*.exe
+*.AppImage
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local dev scratch
+scratch/
+*.local.*
+*.tmp
+*.bak
+
+# Developer-tool local state may contain permission allowlists and
+# machine-specific paths.
+.claude/
+
+# Sift per-run state inside researcher project directories.
+.sift/
+
+# Hypothesis example database.
+.hypothesis/
+
+# Cache-busted index.html copies the bridge writes at launch
+# (src/sift/ui.py:_materialize_cache_busted_index). Per-launch hash
+# in the filename so WKWebView reloads JS/CSS — runtime artifact,
+# never source.
+src/sift/web/.index.bust-*.html
+
+# Researcher-produced audit / run logs. These can carry data-derived
+# values (varnames, partial diagnostics) from a real session and must
+# never be staged. Pattern covers the canonical names produced by
+# ``packaging/release.sh`` smoke runs and ad-hoc Stata audit dumps.
+audit.log
+audit_*.log
+*.audit.log

@@ -1,0 +1,5006 @@
+/* Shared application and research-workspace styles. */
+
+/* Lexend variable webfont, bundled locally under web/fonts/. No font request
+ * leaves the application at launch.
+ * Three Unicode-range subsets are split out so each researcher's
+ * browser only fetches the bytes its text needs — latin covers
+ * English/Spanish/etc., latin-ext picks up Central/Eastern European
+ * diacritics, vietnamese is small enough to include for the rare
+ * researcher who needs it. The single variable file behind each
+ * @font-face covers weights 300–700 smoothly. OFL.txt sits next to
+ * the woff2 files to satisfy SIL Open Font License attribution. */
+@font-face {
+  font-family: 'Lexend';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('fonts/Lexend-VF-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lexend';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('fonts/Lexend-VF-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lexend';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('fonts/Lexend-VF-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+
+/* Warm neutral palette with teal reserved for secondary information states. */
+:root {
+  /* Tell WebKit/WKWebView the page uses a light native control
+   * scheme. Without this, native fallbacks (e.g. the scrollbar
+   * gutter that WKWebView sometimes paints despite our CSS rules)
+   * are free to pick a default that doesn't match our palette. The
+   * dark blocks below override this to ``dark`` so native chrome
+   * flips with the rest of the theme. */
+  color-scheme: light;
+  --burgundy:      #5d2c3e;   /* deep burgundy — text, code bg */
+  --wine:          #8e3a52;   /* wine/mauve — focus, tool-name */
+  --mauve:         #a87382;   /* dusty mauve — dim text, border */
+  --hot-pink:      #e05a8b;   /* hot pink — danger/highlight */
+  --pink:          #ee8ba9;   /* pink — accent-soft */
+  --pink-light:    #f5c6d3;   /* light pink — tool card */
+  --peach:         #f5c1b0;   /* peachy pink — user bubble */
+  --blue-gray:     #aebbc9;   /* pale blue-gray — neutral chrome */
+  --teal:          #3f6f87;   /* teal blue — secondary accent */
+  --dusty-purple:  #9a819d;   /* supporting tone */
+
+  --bg: #fbe3e8;            /* softest pink wash — room tone */
+  --bg-surface: #fceeeb;    /* cream-rose — composer / chip surface */
+  --bg-user: var(--peach);  /* warm peach chip for the researcher's words */
+  --bg-tool: var(--pink-light);
+  --bg-error: #e08a8a;      /* muted terracotta */
+  --text: var(--burgundy);
+  --text-dim: var(--mauve);
+  --accent: var(--teal);    /* focus ring, tool-name, links — bluish contrast to the warm pinks */
+  --accent-soft: var(--blue-gray);
+  --sage: var(--teal);      /* kept the var name for back-compat */
+  --border: #e8cdd4;        /* soft pink-mauve edge */
+  --code-bg: var(--burgundy);
+  --code-text: var(--pink-light);
+  --max-width: 1188px;
+  --radius: 12px;
+
+  --font-sans: 'Lexend', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+/* Dark-mode values. Applied when the OS prefers dark AND the user
+ * hasn't forced light via the topbar toggle, OR when the toggle
+ * explicitly selects dark. Stays on the "Mendl's at dusk" warm-
+ * charcoal palette — the bordeaux/pink light theme is daylight; at
+ * night we soften to espresso and golden-olive. Duplicated rather
+ * than chained so an OS flip mid-session still works without a
+ * reload. */
+/* Dark mode: neutral warm charcoal base, with palette colors used
+ * only as accents. Prior versions painted everything burgundy/pink,
+ * which looked loud and fought the "dim room" feel. Now the bg,
+ * surface, and bubble all sit in the dark-neutral range; mauve,
+ * pink, and teal appear only where they're meant to draw the eye
+ * (tool-name, accent-soft chrome, info states). Same tokens across
+ * both selectors so theme toggle doesn't produce drift. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* Match the CSS palette switch with the native control scheme so
+     * WKWebView's native scrollbar (used when our ::-webkit-scrollbar
+     * rules don't fully take over) paints with a dark track + gray
+     * thumb instead of the default white track / light thumb that
+     * clashes with the dark code panel. */
+    color-scheme: dark;
+    --bg: #1a1416;               /* near-black, faint warm red */
+    --bg-surface: #251c1f;       /* warm charcoal — sidebar, cards */
+    --bg-user: #4a2e36;           /* deep wine — user bubble, muted */
+    --bg-tool: #2a2023;          /* darker neutral — tool card */
+    --bg-error: #7a2e3a;         /* deep rose — alert (less alarming than hot pink) */
+    --text: #e6d5c7;             /* warm off-white — body text */
+    --text-dim: #8a7a82;         /* muted mauve-gray — secondary text */
+    --accent: #d68aa0;           /* focus and active controls */
+    --accent-soft: #a87382;      /* dusty mauve — soft accents */
+    --sage: #d68aa0;             /* dark accent rose — success status, cohesive with the new --accent (light mode used teal) */
+    --hot-pink: #d96979;         /* deeper rose-red — error status (light mode's #e05a8b reads pink in dark; this is clearly redder for danger semantics) */
+    --border: #3a2a30;
+    --code-bg: #120d10;
+    --code-text: #e6d5c7;
+  }
+}
+
+:root[data-theme="dark"] {
+  /* See the @media block above — same rationale. Forced-dark via
+   * the topbar toggle also needs the native control scheme to flip,
+   * even when the OS is in light mode. */
+  color-scheme: dark;
+  --bg: #1a1416;
+  --bg-surface: #251c1f;
+  --bg-user: #4a2e36;
+  --bg-tool: #2a2023;
+  --bg-error: #7a2e3a;
+  --text: #e6d5c7;
+  --text-dim: #8a7a82;
+  --accent: #d68aa0;
+  --accent-soft: #a87382;
+  --sage: #d68aa0;
+  --hot-pink: #d96979;
+  --border: #3a2a30;
+  --code-bg: #120d10;
+  --code-text: #e6d5c7;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* --- status line ---
+ * Replaces the old anchored-bubble toasts. One centered line of
+ * dim text above the composer form. Fills for 4s when a notice
+ * fires (session switched, model switched, can't delete active,
+ * file added), then fades out. Layout-stable: the strip reserves
+ * its own line height when empty so the composer doesn't jump
+ * when notices appear and disappear. No bubble, no chrome. */
+
+.status-line {
+  /* Absolutely centered over the composer-meta row so it sits at
+   * the geometric center of the row regardless of how wide the
+   * left chips (+, Permission) or right chips (Model, context) are.
+   * Flex-spacer centering drifts when the two sides have different
+   * widths; absolute positioning pins it to true center. No
+   * background, no chrome — just centered dim text at the same
+   * visual level as the surrounding chips. Empty by default; fills
+   * for 4s when a notice fires. pointer-events: none lets clicks
+   * fall through to whatever's underneath. */
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0 8px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+}
+
+.status-line.visible {
+  opacity: 0.85;
+}
+
+.status-line.info    { color: var(--text-dim); }
+.status-line.success { color: var(--sage); }
+.status-line.error   { color: var(--hot-pink); }
+
+/* --- keyboard shortcuts overlay --- */
+
+.shortcuts-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1100;
+  padding: 24px;
+}
+
+/* Feedback modal — same backdrop + card vocabulary as the
+   shortcuts overlay so the two dialogs feel consistent. */
+.feedback-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1100;
+  padding: 24px;
+}
+
+.feedback-card {
+  width: 460px;
+  max-width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 20px 22px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+.feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+
+.feedback-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.feedback-close:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.feedback-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feedback-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 10px;
+}
+
+.feedback-label:first-child {
+  margin-top: 0;
+}
+
+.feedback-textarea,
+.feedback-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.feedback-textarea:focus,
+.feedback-input:focus {
+  outline: none;
+  border-color: var(--accent, var(--text-dim));
+}
+
+.feedback-file {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.feedback-preview {
+  position: relative;
+  margin-top: 6px;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.feedback-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 180px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.feedback-image-clear {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.feedback-counter {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.feedback-counter.feedback-counter-warn {
+  color: #c44;
+}
+
+.feedback-note {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* Meta row that sits directly under the message textarea —
+ * carries the live character counter. ``justify-content: flex-end``
+ * right-aligns the counter to match the visual weight of the
+ * textarea's bottom-right corner. The counter turns warning-
+ * coloured as the user approaches the cap — see the JS handler
+ * in app.js. */
+.feedback-message-meta {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+.feedback-message-counter {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.feedback-message-counter.near-limit {
+  color: var(--accent, #d49000);
+}
+.feedback-message-counter.at-limit {
+  color: var(--error, #c0392b);
+}
+
+.feedback-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.feedback-button {
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.feedback-button:hover {
+  background: var(--bg-surface);
+}
+
+.feedback-button-primary {
+  background: var(--accent, #b45c6f);
+  border-color: var(--accent, #b45c6f);
+  color: #fff;
+}
+
+.feedback-button-primary:hover {
+  filter: brightness(1.05);
+  background: var(--accent, #b45c6f);
+}
+
+.feedback-button-primary[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.updates-copy {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.updates-copy p { margin: 0 0 14px; }
+
+.updates-details {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) 1fr;
+  gap: 7px 16px;
+  margin: 4px 0 16px;
+}
+
+.updates-details dt { color: var(--text-dim); }
+.updates-details dd { margin: 0; font-weight: 600; }
+.updates-note { color: var(--text-dim); }
+
+.updates-status,
+.updates-path {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  overflow-wrap: anywhere;
+}
+
+.updates-path { margin-top: 8px; color: var(--text-dim); }
+
+.shortcuts-card {
+  width: 420px;
+  max-width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 20px 22px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.shortcuts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+
+.shortcuts-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.shortcuts-close:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.shortcuts-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 16px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.shortcuts-list dt {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-self: end;
+}
+
+.shortcuts-list dd {
+  margin: 0;
+  color: var(--text-dim);
+}
+
+kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* --- landing --- */
+
+.landing,
+.auth {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+}
+
+/* Auth screen — provider configuration before the data picker.
+ * Card layout mirrors landing-card so the two screens feel like
+ * stages of the same wizard. */
+.auth-card {
+  max-width: 640px;
+  width: 100%;
+  text-align: center;
+}
+
+.auth-lead {
+  margin: 0 0 24px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.auth h1 {
+  margin: 0 0 12px;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.auth-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 18px;
+  text-align: left;
+}
+
+.auth-provider {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--bg-surface);
+}
+
+.auth-provider.configured {
+  border-color: var(--accent);
+}
+
+.auth-provider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.auth-provider-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.auth-provider-status {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.auth-provider-status.ok {
+  color: var(--accent);
+}
+
+.auth-provider-help {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.auth-provider-help code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.auth-help-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.auth-help-link:hover,
+.auth-help-link:focus-visible {
+  text-decoration-thickness: 2px;
+  outline: none;
+}
+
+.auth-provider-input {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.auth-provider-input input {
+  flex: 1 1 auto;
+  padding: 8px 10px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  min-width: 0; /* allow shrinking inside flex */
+}
+
+.auth-provider-input input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.auth-btn {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.auth-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.auth-btn.primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.auth-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.auth-status {
+  min-height: 18px;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.auth-status.error {
+  color: #c23;
+}
+
+.auth-status.ok {
+  color: var(--accent);
+}
+
+.auth-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-continue-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.auth-continue-hint.ready {
+  color: var(--accent);
+}
+
+.landing {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+}
+
+.landing-card {
+  max-width: 760px;
+  width: 100%;
+  text-align: center;
+}
+
+.landing-hero {
+  display: block;
+  width: 480px;
+  max-width: 100%;
+  /* Top margin pushes the wordmark down off the card's top edge so
+   * the image's bounding box stops crowding the heading / lead
+   * paragraph that follows. The source PNG has a few rows of
+   * whitespace built into its canvas, so this margin stacks with
+   * that for a comfortable vertical rhythm. */
+  margin: 16px auto 28px;
+}
+
+.landing-hero-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Two prebaked wordmark PNGs — light (burgundy ink) and dark (cream
+ * + mauve ink). Show one, hide the other, based on the active theme.
+ * Default state is light visible / dark hidden; dark-mode rules below
+ * flip it. Two <img>s + CSS toggle is simpler than a JS swap and
+ * still works when the topbar toggle forces a theme that fights the
+ * OS preference. */
+.landing-hero-img--dark { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .landing-hero-img--light { display: none; }
+  :root:not([data-theme="light"]) .landing-hero-img--dark { display: block; }
+}
+
+:root[data-theme="dark"] .landing-hero-img--light { display: none; }
+:root[data-theme="dark"] .landing-hero-img--dark { display: block; }
+
+.landing h1 {
+  margin: 0 0 12px;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.landing-lead {
+  margin: 0 0 24px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.drop-zone {
+  margin: 0 0 18px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 40px 20px;
+  background: var(--bg-surface);
+  transition: border-color 0.15s, background 0.15s;
+  cursor: default;
+}
+
+.drop-zone.dragover {
+  border-color: var(--accent);
+  background: var(--bg-user);
+}
+
+.drop-zone-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dim);
+}
+
+.drop-zone-hint {
+  margin: 0;
+  font-size: 14px;
+}
+
+.drop-zone-sub {
+  margin: 4px 0 0;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.landing-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.landing-btn {
+  padding: 10px 18px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.landing-btn:hover {
+  border-color: var(--accent);
+}
+
+.landing-btn.primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.landing-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.landing-status {
+  min-height: 20px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.landing-status.error {
+  color: var(--hot-pink);
+  opacity: 0.9;
+}
+
+.landing-fineprint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* Subtle bottom-of-card text link. Used today for "Manage providers"
+ * → opens the auth screen. Visually a button, behaviourally a link. */
+.landing-footer {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+}
+
+/* The link sits at the bottom of the landing card next to muted
+ * helper copy, so the affordance has to do all the lifting on its
+ * own — without color and an obvious underline it just reads as
+ * body text. ``--accent`` (teal in light, pink in dark) is the
+ * same token the topbar uses for clickable handles, so this picks
+ * up the existing "interactive accent" pattern instead of inventing
+ * a one-off color. Bumping ``font-weight`` to 500 and giving the
+ * underline a matching accent color (instead of the near-invisible
+ * ``--border``) keeps the chrome compact while making the
+ * "this is a link" reading unambiguous against the soft card bg. */
+.landing-link {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--accent);
+  border-radius: 4px;
+  transition: text-decoration-thickness 0.12s ease;
+}
+
+.landing-link:hover {
+  text-decoration-thickness: 2px;
+}
+
+.landing-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.landing-sessions {
+  margin-top: 24px;
+  text-align: left;
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+
+.landing-sessions-header {
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.landing-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.landing-session {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.landing-session:hover {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+
+.landing-session-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.landing-session-age {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.chat {
+  /* Two-column layout: main transcript on the left, a collapsible
+   * session browser on the right. The main column keeps the prior
+   * column-flex internals (topbar, messages, composer). */
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.chat-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;   /* allow the transcript to shrink when sidebar expands */
+}
+
+/* --- sidebar --- */
+
+.sidebar {
+  /* Left rail. Width is driven by the ``--sidebar-width`` custom
+   * property (defaults to 308px, persisted via localStorage when
+   * the researcher drags the right-edge handle). Triple-locking the
+   * width via flex-basis / width / max-width protects the layout
+   * from nested flex items reporting a large intrinsic minimum width. */
+  --sidebar-width: 339px;
+  flex: 0 0 var(--sidebar-width);
+  width: var(--sidebar-width);
+  max-width: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  border-right: 1px solid var(--border);
+  background: var(--bg-surface);
+  /* No width transition during drag — JS sets width on every
+   * mousemove, and a transition would make the rail lag the
+   * cursor. Only the collapse toggle needs animation. */
+}
+
+.sidebar.collapsed {
+  --sidebar-width: 36px;
+  transition: flex-basis 0.2s, width 0.2s, max-width 0.2s;
+}
+
+.sidebar-resize {
+  /* Thin invisible strip on the right edge. Cursor flips to
+   * ew-resize on hover so researchers discover they can drag it.
+   * Sits above the border-right so mouse events land on the strip
+   * rather than the content inside. */
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  z-index: 5;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.sidebar-resize:hover,
+.sidebar-resize.dragging {
+  background: var(--accent-soft);
+}
+
+.sidebar.collapsed .sidebar-resize {
+  display: none;   /* no point dragging a 36px rail */
+}
+
+.sidebar.collapsed {
+  flex-basis: 36px;
+}
+
+.sidebar.collapsed .sidebar-title,
+.sidebar.collapsed .sidebar-new,
+.sidebar.collapsed .sidebar-list {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  transform: rotate(180deg);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.sidebar-toggle {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s, transform 0.2s;
+}
+
+.sidebar-toggle:hover {
+  color: var(--text);
+  background: var(--bg);
+}
+
+.sidebar-new {
+  margin: 10px 12px 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.sidebar-new:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sidebar-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session-row {
+  /* Grid: click target on the left, trash icon on the right. The
+   * active session tints the whole row; the trash button is always
+   * visible (small and muted) so users don't have to hover-discover
+   * the delete affordance. ``gap: 0`` keeps the pin button visually
+   * flush against the title slot; the small breathing room between
+   * the pin glyph and the title comes from ``.session-item`` left
+   * padding so we can tune the two independently. */
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.session-row:hover {
+  background: var(--bg);
+}
+
+.session-row.active {
+  background: var(--bg);
+  border-color: var(--accent-soft);
+}
+
+.session-item {
+  /* Single-line row: [busy-dot] [title…] [age]. ``flex: 1 1 0`` with
+   * basis 0 means the item starts from zero width and grows to fill
+   * the row; combined with overflow:hidden + a flexible title that
+   * truncates, this keeps a session with long dataset names from
+   * pushing the sidebar wider than its locked width. */
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  padding: 8px 10px 8px 4px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Pin toggle sits on the FAR LEFT of the row, ahead of the title.
+ * Unpinned rows show it dimmed-and-hover-revealed (matches the rename
+ * / delete pattern so the row's resting state stays calm). Pinned
+ * rows keep it always-visible at full strength so the researcher can
+ * spot pinned items at a glance, AND the filled icon variant
+ * reinforces the engaged state in a way the outlined icon never
+ * does. */
+.session-pin {
+  flex: 0 0 auto;
+  width: 24px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 7px 0 0 7px;
+  transition: color 0.15s, background 0.15s, opacity 0.15s;
+  opacity: 0;
+}
+
+.session-pin.is-pinned {
+  opacity: 1;
+}
+
+.session-row:hover .session-pin,
+.session-row:focus-within .session-pin,
+.session-row.active .session-pin {
+  opacity: 1;
+}
+
+.session-pin:hover {
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .session-pin:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* Busy dot — visible only when a turn is in flight for this
+ * session, including when the researcher is looking at a different
+ * session. Sits in the same right-side slot as ``.session-age`` and
+ * REPLACES the age label while the turn runs (CSS hides the age and
+ * reveals the dot together), so the pulse reads as "this chat is
+ * working" without crowding the title. */
+.session-busy-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: none;
+  pointer-events: none;
+}
+
+.session-item.busy .session-age {
+  display: none;
+}
+
+.session-item.busy .session-busy-dot {
+  display: inline-block;
+  animation: session-busy-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes session-busy-pulse {
+  0%, 100% { opacity: 1;    transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.65); }
+}
+
+.session-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.session-age {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.session-item:focus-visible {
+  /* Visible focus ring so arrow-key navigation shows the current
+   * row clearly. No ring on plain :focus — the item inherits focus
+   * from click, and we don't want a ring after a click.
+   */
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.session-rename,
+.session-delete {
+  flex: 0 0 auto;
+  width: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, opacity 0.15s;
+  opacity: 0;
+}
+
+.session-rename {
+  font-size: 13px;
+  border-radius: 0;
+}
+
+.session-delete {
+  width: 28px;
+  font-size: 18px;
+  border-radius: 0 7px 7px 0;
+}
+
+/* Reveal the row's secondary actions on hover, focus-within, or
+ * for the active session. Keeping them invisible by default cuts
+ * the row's visual noise when the researcher just wants to
+ * scan the list. */
+.session-row:hover .session-rename,
+.session-row:hover .session-delete,
+.session-row:focus-within .session-rename,
+.session-row:focus-within .session-delete,
+.session-row.active .session-rename,
+.session-row.active .session-delete {
+  opacity: 1;
+}
+
+.session-rename:hover {
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.session-delete:hover {
+  color: var(--bg-error);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .session-rename:hover,
+  .session-delete:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* Edit-mode container that temporarily replaces the row's button
+ * during rename. Same padding/typography as ``.session-item`` so
+ * the input lands in the same visual position. */
+.session-item-editing {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 10px 8px 4px;
+}
+
+.sidebar-list-empty {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+  text-align: center;
+}
+
+/* --- topbar --- */
+
+.topbar {
+  /* Three-column grid so the middle child (session title pill)
+   * sits at the true center of the bar, independent of how wide
+   * the "Sift" word-mark on the left or the theme toggle on
+   * the right happen to be.
+   *
+   * Background matches the chat area (``--bg``) and the divider
+   * border is gone so the topbar reads as floating chrome over a
+   * single continuous surface — same posture as the bottom
+   * composer area. The session title pill, Files chip, and theme
+   * toggle still float on top via their own backgrounds; only
+   * the bar substrate is invisible. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  background: var(--bg);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.topbar-title {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  justify-self: start;
+}
+
+.topbar-meta {
+  justify-self: center;
+}
+
+.topbar-toggle {
+  justify-self: end;
+}
+
+/* Right-corner cluster: Files chip + theme toggle. ``justify-self:
+ * end`` puts the whole cluster in the topbar grid's right column,
+ * keeping the centered meta-column untouched. */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+}
+
+.topbar-meta {
+  /* Centered cluster: session title pill + Files chip. The pill
+   * styling moved to ``#cwd-display`` directly so adding sibling
+   * chips (Files) doesn't inherit the rounded background. Flex
+   * row with a small gap so the chip sits naturally beside the
+   * pill without crowding. */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#cwd-display {
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.85;
+  font-family: var(--font-mono);
+  background: var(--bg);
+  padding: 4px 12px;
+  border-radius: 999px;
+  max-width: 560px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  /* The pill is now an "open this session's folder in Finder"
+   * affordance, not a rename trigger — pointer cursor matches the
+   * click intent. (Was ``text`` when clicking swapped the label for
+   * an inline rename input.) */
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+
+#cwd-display:hover {
+  opacity: 1;
+  border-color: var(--border);
+}
+
+#cwd-display:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#cwd-display:empty {
+  display: none;  /* don't render the empty pill before cwd is set */
+}
+
+/* Inline rename input — used by the topbar pill and by sidebar
+ * rows. Inherits the host's typography so the swap-in feels
+ * seamless rather than dropping the user into a generic form
+ * field. */
+.session-rename-input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.session-rename-input:focus {
+  outline: none;
+}
+
+/* Sidebar rename uses the same input class but inside the
+ * row's edit container, which has different padding + corner
+ * shape than the topbar pill. */
+.session-item-editing .session-rename-input {
+  padding: 0;
+  background: transparent;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.topbar-toggle {
+  /* Small, unobtrusive round button next to the session pill. Uses
+   * a sun/moon glyph set by JS — transparent background, subtle
+   * border on hover. Parked here temporarily for palette testing;
+   * can move to a settings menu later. */
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  opacity: 0.75;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+}
+
+/* Top-bar chip used by the Files panel — same visual language as
+ * the composer chips but anchored at the topbar height. Read-only
+ * popup; permission editing stays in the bottom Permission chip. */
+.topbar-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.topbar-chip:hover {
+  border-color: var(--accent);
+}
+
+.topbar-chip.open {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+
+.topbar-chip.hidden {
+  display: none;
+}
+
+/* When the files popup is anchored to a topbar chip rather than a
+ * composer chip, its parent ``.permission-wrap`` is up at the top
+ * of the screen — flip the popup to drop DOWN from the chip so it
+ * doesn't render off-screen. Left-anchored to the chip (same as
+ * the composer Permission popup), so it reads as a normal dropdown
+ * rather than a right-edge-of-screen panel. Selector targets only
+ * the topbar instance so the composer popups (Permission, Model)
+ * keep dropping up as before. */
+.topbar .policy-popup {
+  bottom: auto;
+  top: calc(100% + 8px);
+  /* Anchored to the chip's right edge — the chip itself sits in
+   * the topbar's right corner, so a left-anchored popup would
+   * extend the popup leftward and look weird. Right-anchored
+   * keeps it tucked under the chip and prevents off-screen
+   * overflow on narrow windows. */
+  right: 0;
+  left: auto;
+}
+
+.files-row {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.files-row + .files-row {
+  margin-top: 2px;
+}
+
+/* Clickable script rows — visual cue that this is the "send file
+ * to the model" affordance. Cursor pointer + hover background +
+ * trailing ↑ glyph that fades in on hover so the click target
+ * stays discoverable without crowding read-only data rows. */
+.files-row-clickable {
+  cursor: pointer;
+  position: relative;
+  padding-right: 24px;
+}
+
+.files-row-clickable:hover {
+  background: var(--bg);
+  color: var(--accent);
+}
+
+.files-row-clickable::after {
+  content: "↑";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s;
+  font-weight: 600;
+}
+
+.files-row-clickable:hover::after {
+  opacity: 1;
+}
+
+/* Read-only rows (data, graphs, logs) keep a subtle hover for
+ * scannability without implying interactivity. */
+.files-row:not(.files-row-clickable):hover {
+  background: var(--bg);
+}
+
+/* Image rows in the Files panel — plot thumbnails stack up
+ * here as the analysis produces them. The panel becomes the
+ * session-wide gallery: every plot from every run, in
+ * mtime-descending order. */
+.files-row-image {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 6px;
+  gap: 4px;
+}
+
+.files-row-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 220px;
+  object-fit: contain;
+  background: var(--code-bg);
+  border-radius: 6px;
+  cursor: zoom-in;
+  transition: transform 0.12s ease;
+}
+
+.files-row-image img:hover {
+  transform: scale(1.01);
+}
+
+.files-row-image-caption {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Files popup: dropdown that lists every script / graph / log
+ * the session has produced. Bumped height so a long iteration
+ * (10+ plots) fits at once without inner-scrollbar pogo-stick. */
+.files-popup {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* --- Row layout: [primary action] [title or thumbnail] [delete]
+ *
+ * Every row has buttons on both sides so common
+ * actions (copy a graph, send a script, delete anything) are one
+ * click each. Separate controls keep open and attach actions unambiguous.
+ */
+.files-row-actionable {
+  display: grid;
+  grid-template-columns: 24px 1fr 24px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.files-row-actionable:hover {
+  background: var(--bg);
+}
+
+/* Action buttons: small, ghost-style, inherit color so the
+ * trash icon turns red on hover via .files-row-action-danger. */
+.files-row-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.files-row-action:hover {
+  color: var(--accent);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .files-row-action:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+.files-row-action-danger:hover {
+  color: var(--bg-error, #d73027);
+}
+
+/* The delete glyph (``×``) needs slightly larger type than the
+ * SVG icons so it reads at the same visual weight. Matches the
+ * session-list delete affordance. */
+.files-row-action-right {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Spacer keeps the title column aligned when a row has no
+ * primary action (rare — currently only the log kind). */
+.files-row-action-spacer {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+}
+
+/* Center column: the file name AND, for image rows, the
+ * thumbnail above it. flex-column so the thumbnail floats
+ * above its caption like in the previous layout. */
+.files-row-center {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  gap: 4px;
+}
+
+.files-row-thumb {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 220px;
+  object-fit: contain;
+  background: var(--code-bg);
+  border-radius: 6px;
+  cursor: zoom-in;
+  transition: transform 0.12s ease;
+}
+
+.files-row-thumb:hover {
+  transform: scale(1.01);
+}
+
+.files-row-caption {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Script and log rows in the Files panel show the analytic label
+ * Sift passed to ``submit_script`` ("H1a Path A: op margin,
+ * np_only_within_cancer_type"). Those labels are routinely longer
+ * than fits on one line at the popup's width, and a single-line
+ * ellipsis hides the part that distinguishes one run from another.
+ * Allow up to two lines with the same monospace face; clamp at
+ * two so a pathological 200-char label doesn't blow up the row.
+ * Image rows keep the single-line caption — the thumbnail above
+ * is the real identifier; the caption is just a filename hint. */
+.files-row-actionable[data-kind="script"] .files-row-caption,
+.files-row-actionable[data-kind="log"] .files-row-caption {
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.35;
+}
+
+.topbar-toggle:hover {
+  opacity: 1;
+  border-color: var(--border);
+  background: var(--bg);
+}
+
+/* --- message list --- */
+
+.messages {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 24px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scroll-behavior: smooth;
+  /* Everything inside the transcript is draggable text. WKWebView
+   * sometimes inherits a "none" from chrome-like containers; this
+   * makes the default explicit so researchers can grab and copy
+   * code, tables, numbers — anything they see. Headers and click
+   * targets below can opt out individually. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* When the transcript holds only the greeting, vertically center
+ * it inside the chat area — feels less abandoned on a wide empty
+ * window than a single line floating at the top. The instant a
+ * real message arrives the JS clears the welcome-only class
+ * (showChat / replayHistory / appendAssistant / appendThinking /
+ * appendToolCall / appendToolResult / append all flip the flag),
+ * the centering rule stops applying, and the welcome falls to the
+ * top with the conversation flowing beneath. */
+.messages.welcome-only {
+  justify-content: center;
+}
+
+/* Override `.message`'s 960px column cap for the welcome message
+ * specifically (.welcome-greeting is a permanent class set in
+ * showChat — kept on after welcome-only is cleared). Without this,
+ * the greeting's flex container would be capped at 960px and sit
+ * left-of-center on a wide window because the sidebar eats space
+ * on the left side of chat-main; widening to 100% lets the inner
+ * justify-content center the text relative to the whole chat
+ * column. The class persists after the first message lands so the
+ * greeting stays horizontally centered as the conversation flows
+ * beneath it. */
+.message.system.welcome-greeting {
+  max-width: 100%;
+  width: 100%;
+}
+
+.message.system.welcome-greeting .message-body {
+  max-width: min(95%, 900px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.messages pre,
+.messages code,
+.messages .message-body,
+.messages .tool-output {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+.message {
+  max-width: var(--max-width);
+  width: 100%;
+  margin: 0 auto;
+  /* As a flex item of ``.messages`` (column flex), ``.message`` has
+   * ``min-width: auto`` by default — meaning it cannot shrink below
+   * the intrinsic min-width of its content. A wide unwrappable child
+   * (a ``<pre>`` of an unbroken ``do``-file line, a long URL in a
+   * paragraph) then forces the message past its 1080px cap, the
+   * overflow propagates up to ``.messages``, and ``.messages`` paints
+   * a horizontal scrollbar — breaking the page layout. ``min-width:
+   * 0`` lets the message respect its ``max-width`` even when content
+   * has a huge intrinsic width; the wide child is then constrained
+   * by the per-element rules below (``pre`` gets its own internal
+   * ``overflow-x: auto`` scroll, tables go into ``.md-table``). */
+  min-width: 0;
+  /* Soft reveal: each new message fades up from blurred + translucent
+   * to crisp. Beats an abrupt DOM insert (which reads as a pop-in)
+   * and avoids the typewriter trope, which forces the reader to
+   * watch words land instead of reading them. Replayed history bubbles
+   * also animate once on first paint — visually fine because they
+   * appear in a single batch, not as a long cascade. The animation
+   * is short enough not to slow reading. */
+  animation: message-fade-in 0.28s ease-out both;
+}
+
+@keyframes message-fade-in {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Respect researcher accessibility preference. Skip the reveal
+   * animation entirely; the bubble appears immediately. */
+  .message {
+    animation: none;
+  }
+}
+
+.message-body {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  /* A touch more leading than the page-default 1.6 — chat reads
+   * easier with slightly more breathing room between bullets and
+   * multi-line replies. Tables, code, and pre keep their own
+   * line-heights via more specific rules below. */
+  line-height: 1.8;
+}
+
+/* User messages: right-aligned bubble, like most chat UIs. The
+ * bubble width is capped at 75% of the column so a long message
+ * still reads naturally; `justify-content: flex-end` pushes it
+ * to the right edge of the centered column. */
+.message.user {
+  /* Column flex so images / bubble / attachment chips stack
+   * vertically instead of sitting side-by-side. ``align-items:
+   * flex-end`` keeps the whole stack right-aligned (matching the
+   * old ``justify-content: flex-end`` row layout). The bubble
+   * itself still caps at 75% column width via the rule below — so
+   * the bubble stays compact and the image sits above it at its
+   * own natural size. */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.message.user .message-body {
+  background: var(--bg-user);
+  /* Shrink-wrap the bubble to its text up to 75% of the column.
+   * Without ``width: fit-content`` a short message ("ok", "yes")
+   * paints as a 75%-wide chip with empty bubble area to the left
+   * of the text — and selecting that text shows the highlight
+   * extending into the empty bubble area. fit-content makes the
+   * bubble exactly as wide as the text, so selection ends at the
+   * last glyph on each line. */
+  width: fit-content;
+  max-width: 75%;
+  /* Text inherits --text. Light-mode bubble is peach with burgundy
+   * text (high contrast); dark-mode bubble is deep wine with warm
+   * cream text (also high contrast). Each mode picks its own
+   * readable pairing without a cross-mode lock. */
+}
+
+.message.assistant .message-body {
+  /* No bubble — assistant text sits on the page background like a
+   * book paragraph. Only the user's own words get a colored chip;
+   * the assistant's prose is the page. */
+  background: transparent;
+  border: none;
+  padding-left: 0;
+  /* Right padding kept minimal so drag-selection doesn't extend
+   * far past the visible text into empty side space. Was 40px;
+   * 8px keeps the column from kissing the chat-pane edge while
+   * not adding visible empty highlight on selection. */
+  padding-right: 8px;
+  /* Drag-select fit: stack children as a flex column with
+   * ``align-items: flex-start`` so each block (paragraph, list,
+   * table) sizes to its own content. Without this, every child is
+   * stretched to the body's full width and a drag-select across
+   * paragraphs picks up empty trailing space. Per-child width:
+   * fit-content alone is not enough — the inter-paragraph
+   * selection bridges still use the parent's width. The flex
+   * stack constrains both. */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* Belt-and-braces — keep ``fit-content`` on each text child so
+ * single-line drag-selection inside a paragraph doesn't extend
+ * past the longest line in that paragraph. Tables sit in flex
+ * flow and naturally size to their cells. */
+.message.assistant .message-body > p,
+.message.assistant .message-body > h1,
+.message.assistant .message-body > h2,
+.message.assistant .message-body > h3,
+.message.assistant .message-body > h4,
+.message.assistant .message-body > h5,
+.message.assistant .message-body > h6,
+.message.assistant .message-body > ul,
+.message.assistant .message-body > ol,
+.message.assistant .message-body > blockquote {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.message.thinking .message-body {
+  background: transparent;
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 13px;
+  padding: 6px 16px;
+  margin-right: 60px;
+}
+
+/* --- thinking card (collapsible reasoning trace) --- */
+
+.thinking-card {
+  max-width: var(--max-width);
+  width: 100%;
+  margin: 0 auto;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.thinking-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.thinking-header:hover {
+  color: var(--text);
+  background: var(--bg-surface);
+}
+
+.thinking-arrow {
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+
+.thinking-card.collapsed .thinking-arrow {
+  transform: rotate(-90deg);
+}
+
+.thinking-label {
+  font-weight: 500;
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 11px;
+}
+
+.thinking-body {
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-left: 2px solid var(--border);
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.thinking-card.collapsed .thinking-body {
+  display: none;
+}
+
+/* --- Compact, provider-neutral loading indicator --- */
+
+.loading-indicator {
+  max-width: var(--max-width);
+  width: 100%;
+  margin: 4px auto 0;
+  padding: 6px 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.loading-text {
+  transform: none;
+}
+
+.loading-text::after {
+  /* Subtle trailing-dots pulse alongside the spin. */
+  content: '';
+  animation: loading-dots 1.4s steps(4, end) infinite;
+}
+
+@keyframes loading-dots {
+  0%   { content: ''; }
+  25%  { content: '.'; }
+  50%  { content: '..'; }
+  75%  { content: '...'; }
+  100% { content: ''; }
+}
+
+/* System + error messages in the chat look the same: a centered,
+ * dim, pill-shaped environment notice. They read as "from the
+ * bot's environment", not as conversational content — distinct
+ * from assistant paragraphs and from the researcher's right-aligned
+ * bubble. Error coloring is a subtle tint rather than a full red
+ * panel so repeated notices don't drown out the transcript. */
+/* System / welcome / error notices are framing text, not
+ * conversation. They sit centered with no background or border —
+ * they whisper "from the environment" without competing visually
+ * with the conversation. Error keeps a
+ * faint rose tint on the text itself so it still reads as
+ * "something went wrong", but no panel, no pill. */
+.message.system,
+.message.error {
+  display: flex;
+  justify-content: center;
+  margin: 6px 0;
+}
+
+.message.system .message-body,
+.message.error .message-body {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 6px 12px;
+  font-size: 12.5px;
+  text-align: center;
+  max-width: min(80%, 520px);
+  opacity: 0.8;
+}
+
+.message.error .message-body {
+  /* Subtle rose tint on the text only — no panel, no chrome. */
+  color: var(--hot-pink);
+  opacity: 0.9;
+}
+
+/* --- tool call cards --- */
+
+.tool-card {
+  max-width: var(--max-width);
+  width: 100%;
+  margin: 0 auto;
+  background: var(--bg-tool);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  /* Same flex-item caveat as ``.message`` above — the card is a
+   * flex item of ``.messages``, and a wide ``pre.tool-code`` /
+   * ``pre.tool-output`` would otherwise push it past 1080px and
+   * leak the horizontal scrollbar up to ``.messages``. */
+  min-width: 0;
+}
+
+.tool-card .tool-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-dim);
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tool-card .tool-name {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tool-card .tool-arrow {
+  transition: transform 0.15s;
+}
+
+.tool-card.collapsed .tool-body {
+  display: none;
+}
+
+.tool-card.collapsed .tool-arrow {
+  transform: rotate(-90deg);
+}
+
+.tool-card .tool-body {
+  margin-top: 8px;
+}
+
+.tool-card .tool-body pre {
+  background: var(--code-bg);
+  color: var(--code-text);
+  padding: 10px 12px;
+  border-radius: 8px;
+  /* Cap the pre at the card's width even when an unbroken line
+   * (long Stata command, raw stdout with no wrapping) has a huge
+   * intrinsic min-width. Without these the pre grows to content
+   * width, escapes the card, and the overflow paints a page-wide
+   * scrollbar in ``.messages``. With them ``overflow-x: auto``
+   * keeps the long line scrollable inside the pre itself. */
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  margin: 6px 0;
+  font-size: 12px;
+  position: relative;
+}
+
+/* Scrollbar styling on the two dark code panels inside ``.tool-body``:
+ * ``pre.tool-code`` (script display) and ``pre.tool-output`` (raw
+ * R/Stata/Python stdout). Both pick up ``background: var(--code-bg)``
+ * from ``.tool-card .tool-body pre`` above — the per-element
+ * ``.tool-output { background: var(--bg) }`` declaration is overridden
+ * by that more-specific selector — so they live on the same burgundy
+ * surface and need the same scrollbar chrome to look consistent
+ * across panels. The global ``.messages *::-webkit-scrollbar-track`` paints ``--bg``
+ * (soft pink) onto the actual burgundy panel, leaving a near-white
+ * strip in light mode.
+ *
+ * Track color — ``var(--code-bg)`` matches the pre's own background,
+ * so the rail embeds INTO the dark panel. ``transparent`` is
+ * intentionally avoided: in WKWebView with macOS "Always show
+ * scrollbars", a transparent track can fall through to a default
+ * light native fill, so an explicit theme color is belt-and-suspenders.
+ *
+ * Thumb — accent-soft fill with an accent ring. ``--accent-soft``
+ * (blue-gray light / dusty-mauve dark) is light enough to read on
+ * the ``--code-bg`` track, and the inset ``var(--accent)`` ring
+ * (teal light / pink dark) provides a brighter highlight rim. We use
+ * ``box-shadow: inset`` rather than ``border`` because a real border
+ * would shrink the thumb's hit area and fight ``background-clip``;
+ * the inset shadow gives the same ring without those side effects.
+ * Hover swaps the fill to ``--accent`` for a theme-aware affordance.
+ *
+ * Specificity: ``.tool-card .tool-body pre.tool-code`` and
+ * ``.tool-card .tool-body pre.tool-output`` are both (0,3,1), which
+ * beats the broader ``.tool-card .tool-body pre`` (0,2,1) defining
+ * pre chrome above and the global ``.messages *`` scrollbar rules
+ * (0,1,1 + universal). */
+.tool-card .tool-body pre.tool-code,
+.tool-card .tool-body pre.tool-output {
+  scrollbar-width: thin;
+  /* Firefox: thumb / track. ``--accent`` flips with the theme tokens
+   * (teal in light, pink in dark) so the thumb stays in-palette in
+   * both modes; the track matches the code panel itself so the rail
+   * embeds into the panel. We can't paint the inset ring in Firefox
+   * (no equivalent property), so Firefox gets a solid accent-colored
+   * thumb — same intent, less detail. */
+  scrollbar-color: var(--accent) var(--code-bg);
+}
+
+.tool-card .tool-body pre.tool-code::-webkit-scrollbar,
+.tool-card .tool-body pre.tool-output::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+  background: var(--code-bg);
+}
+
+/* Thumb: darker inside, brighter outside, both theme-aware. The fill
+ * uses ``--accent-soft`` (blue-gray light / dusty-mauve dark) so it
+ * reads as a soft body, and the inset ring uses ``--accent`` (teal
+ * light / pink dark) for a brighter highlight rim. Both tokens flip
+ * with the rest of the palette, so the thumb tracks the theme in
+ * either mode. ``--pink`` / ``--code-bg`` were swatch references
+ * that didn't flip (loud in dark, off-key in light). */
+.tool-card .tool-body pre.tool-code::-webkit-scrollbar-thumb,
+.tool-card .tool-body pre.tool-output::-webkit-scrollbar-thumb {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  border-radius: 4px;
+}
+
+.tool-card .tool-body pre.tool-code::-webkit-scrollbar-thumb:hover,
+.tool-card .tool-body pre.tool-output::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.tool-card .tool-body pre.tool-code::-webkit-scrollbar-track,
+.tool-card .tool-body pre.tool-output::-webkit-scrollbar-track {
+  background: var(--code-bg);
+}
+
+.tool-card .tool-body pre.tool-code::-webkit-scrollbar-corner,
+.tool-card .tool-body pre.tool-output::-webkit-scrollbar-corner {
+  background: var(--code-bg);
+}
+
+.tool-card .tool-label {
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: inherit;
+}
+
+/* Plot-helper diagnostic note — shown when a helper was called
+ * but produced no plot. Distinct from a regular error because
+ * the script itself succeeded; the helper-level failure (typically
+ * "matplotlib not installed") was swallowed and would otherwise
+ * leave the researcher staring at a blank thumbnail row. */
+.tool-card .tool-plot-diagnostic {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(245, 133, 24, 0.1);
+  border-left: 3px solid #F58518;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Plot thumbnail row inside a submit_script tool card. Renders any
+ * .png the script wrote into its run dir — the researcher's view
+ * of the figures their analysis produced. The bytes never reach
+ * the model; that path is gated separately by the manifest
+ * allowlist in runner._capture_plots. */
+.tool-card .tool-plots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.tool-card .tool-plot-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  max-width: 320px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--code-bg);
+}
+
+.tool-card .tool-plot-tile img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  cursor: zoom-in;
+}
+
+.tool-card .tool-plot-placeholder {
+  /* Rendered for plots above the inline byte cap — no thumbnail
+   * data sent in the event, so we show a sized placeholder + a
+   * click-to-open affordance. */
+  padding: 32px 12px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.tool-card .tool-plot-caption {
+  padding: 6px 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  border-top: 1px solid var(--border, rgba(127, 127, 127, 0.2));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tool-card .tool-code {
+  /* Keep the code block distinctive — monospace, preserve
+   * whitespace, scrollable. The language badge in the corner tells
+   * the researcher what runtime this will hit.
+   *
+   * Long scripts (50+ lines) used to dominate the transcript with
+   * a wall of code that the researcher rarely needs to re-read in
+   * full. Cap height so the script-input card sits at roughly the
+   * same visual weight as the result card that follows; vertical
+   * scroll keeps the whole script accessible without taking over
+   * the chat. */
+  white-space: pre;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.tool-card .tool-lang-badge {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  background: rgba(0, 0, 0, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.tool-card .tool-source {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  margin: 4px 2px 0;
+}
+
+/* --- inline script-result pieces (appended into the tool-body
+ * after a submit_script run). --- */
+
+.tool-card .tool-divider {
+  margin: 14px 2px 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+}
+
+.tool-card .tool-divider-stderr {
+  color: #b7791f;
+}
+
+.tool-card .tool-output {
+  /* The native R / Stata output block — monospace, preserved
+   * whitespace, max height so huge logs don't eat the whole chat.
+   * Scrolls vertically; .tool-run-dir points at the full file on
+   * disk if it got truncated. */
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre;
+}
+
+/* Collapsed wrapper around the native output. Same disclosure
+ * pattern as ``.result-panel-collapsed`` — small dim summary line,
+ * click to expand the actual log. Default-collapsed: the canonical
+ * tables and the chat reply already tell the story; the raw log is
+ * for audit. */
+.tool-card .tool-output-collapsed {
+  margin: 4px 0;
+}
+
+.tool-card .tool-output-summary {
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.tool-card .tool-output-summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-card .tool-output-summary::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 10px;
+  transition: transform 0.15s ease;
+  color: var(--text-dim);
+}
+
+.tool-card .tool-output-collapsed[open] .tool-output-summary::before {
+  transform: rotate(90deg);
+}
+
+.tool-card .tool-output-collapsed[open] .tool-output-summary {
+  /* Visually join the summary to the pre below when open. */
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+
+.tool-card .tool-output-collapsed[open] .tool-output {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  margin-top: 0;
+}
+
+.tool-card .tool-output-stderr {
+  border-color: rgba(183, 121, 31, 0.3);
+}
+
+.tool-card .tool-output-empty {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin: 4px 2px;
+}
+
+.tool-card .tool-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0 4px;
+}
+
+/* Canonical Sift-rendered result tables, dropped into the tool-card
+ * body above the native script stdout. One ``.result-markdown``
+ * per ok-status result; the panel wraps them so a multi-result
+ * script reads as a vertical stack. Tables themselves are styled
+ * via the ``.message-body table`` rules so the look is consistent
+ * with markdown tables the model writes inline. */
+.tool-card .result-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+/* Multi-result audit panel: collapsed by default. Summary line is
+ * the audit affordance — researcher sees the count and id range,
+ * clicks to expand the per-result tables when they actually want
+ * the detail. The composite table from ``compose_results`` is the
+ * primary reading surface; the inner panels back it up. */
+.tool-card .result-panel-collapsed {
+  /* Neutral chrome — the panel is an audit affordance, not a
+   * highlighted artifact. ``overflow: hidden`` clips the inner
+   * summary's bottom border to the rounded-corner radius so the
+   * border reads as one continuous outline when expanded. */
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 0;
+}
+
+.tool-card .result-panel-summary {
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.tool-card .result-panel-summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-card .result-panel-summary::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 10px;
+  transition: transform 0.15s ease;
+  color: var(--text-dim);
+}
+
+.tool-card .result-panel-collapsed[open] .result-panel-summary::before {
+  transform: rotate(90deg);
+}
+
+.tool-card .result-panel-collapsed[open] .result-panel-summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-card .result-panel-collapsed > .result-markdown {
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* --- Challenge Finding: per-result action + envelope-level badge --- */
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.result-actions .result-challenge-btn { margin-top: 0; }
+.evidence-meta {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.result-challenge-btn {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 5px 11px;
+  font-size: 11.5px;
+  font-family: inherit;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.result-challenge-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.challenge-badge {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.challenge-robust {
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.12);
+}
+.challenge-fragile {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.12);
+}
+
+/* --- Finding cards: ``:::finding`` directive blocks (markdown.js) --- */
+.finding-card {
+  margin: 10px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg-surface);
+}
+.finding-claim {
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.finding-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.finding-badge {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: var(--text-dim);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  text-transform: capitalize;
+}
+.finding-confidence-strong {
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.12);
+  border-color: transparent;
+}
+.finding-confidence-moderate {
+  color: var(--warning, #b45309);
+  background: rgba(180, 83, 9, 0.12);
+  border-color: transparent;
+}
+.finding-confidence-weak {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.12);
+  border-color: transparent;
+}
+.finding-badge-causal {
+  font-style: italic;
+}
+.finding-evidence {
+  margin-bottom: 6px;
+}
+.finding-caveat {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.tool-card .result-panel-collapsed > .result-markdown:last-child {
+  border-bottom: 0;
+}
+
+.tool-card .result-markdown {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.tool-card .result-header {
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-weight: 500;
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-card .result-markdown-body {
+  padding: 8px 14px 12px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.tool-card .result-markdown-body::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tool-card .result-markdown-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.tool-card .result-markdown-body table {
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tool-card .result-markdown-body th,
+.tool-card .result-markdown-body td {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tool-card .result-markdown-body th:first-child,
+.tool-card .result-markdown-body td:first-child {
+  text-align: left;
+}
+
+.tool-card .result-markdown-body th {
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.tool-card .result-markdown-body tr:last-child td {
+  border-bottom: none;
+}
+
+.tool-card .tool-action {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.tool-card .tool-action:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tool-card .tool-action:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.tool-card .tool-sanitized {
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.tool-card .tool-sanitized > summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  padding: 4px 2px;
+  list-style: none;
+  user-select: none;
+}
+
+.tool-card .tool-sanitized > summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s;
+}
+
+.tool-card .tool-sanitized[open] > summary::before {
+  content: "▾ ";
+}
+
+.tool-card .tool-sanitized:hover > summary {
+  color: var(--text);
+}
+
+.tool-card .tool-output-sanitized {
+  max-height: 220px;
+}
+
+.tool-card .tool-run-dir {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  word-break: break-all;
+}
+
+.tool-card.error {
+  border-color: #c23;
+  background: var(--bg-error);
+}
+
+/* --- composer --- */
+
+.composer {
+  /* No background or top border: the footer should melt into the
+   * conversation area above. Only the compose-form itself (the
+   * rounded input box) carries its own surface color. The sidebar
+   * to the left still has its own surface since it's a distinct
+   * region; the composer is a continuation of the transcript. */
+  background: transparent;
+  padding: 12px 20px 16px;
+  flex-shrink: 0;
+  position: relative;  /* so .policy-popup absolute-positions against the composer footer */
+}
+
+.compose-attachments {
+  /* Staged image thumbs above the composer. Sits just above the
+   * input box, same max-width so it aligns with the form. Hidden
+   * by the .hidden class until a drop populates it. */
+  max-width: var(--max-width);
+  margin: 0 auto 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 6px;
+}
+
+/* "Scroll to latest" floating button. Anchored to the top edge of
+ * the composer footer (.composer is the positioned ancestor) so it
+ * floats just above the input area regardless of attachments / chip
+ * row height. Hidden when the transcript is near the bottom; fades
+ * in when the researcher scrolls up. */
+.scroll-to-bottom {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.18s ease-out, transform 0.12s ease-out;
+  z-index: 5;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.scroll-to-bottom:hover {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-1px);
+}
+
+.scroll-to-bottom.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(4px);
+}
+
+.compose-attachment {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.compose-attachment img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.compose-attachment-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.compose-attachment-remove:hover {
+  background: var(--hot-pink);
+}
+
+/* Data/script file chip — same attachment row as image thumbs, but
+ * text-based because there's no preview to show. Sized to fit the
+ * filename; word chars wrap at ~22ch so long paths don't stretch
+ * the row. */
+.compose-attachment.compose-attachment-file {
+  width: auto;
+  min-width: 80px;
+  max-width: 240px;
+  height: auto;
+  padding: 6px 28px 6px 10px;  /* right padding leaves room for the × */
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.compose-attachment-filename {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+/* Script chips ride with the next message as inline context (the
+ * source travels with the prompt so the model can read it). The
+ * accent border alone marks them as "will be sent" — the previous
+ * leading "↑" cue read as a clickable up-arrow more than as a
+ * status glyph, so it's gone. The chat-area staging notice (see
+ * .staging-notice) is the canonical "this is loaded" cue. */
+.compose-attachment.compose-attachment-script {
+  border-color: var(--accent);
+}
+
+
+/* Persistent attachment chips that ride with a user message in the
+ * transcript. Composer chips clear on send; these stay forever, so
+ * the researcher can scroll back and see what was uploaded when.
+ * Accent-bordered + bolder than the previous neutral styling so
+ * the chip reads as a real "this travelled with the message"
+ * receipt — visually comparable to an image thumbnail attached to
+ * the same bubble (researcher feedback: "I cannot see if it
+ * traveled with the next chat or not, like image"). */
+/* Per-bubble actions row (copy, in the future: edit / rerun).
+ *
+ * Hides by default and reveals on bubble hover so the chat doesn't
+ * carry visual clutter when the researcher is reading. ``opacity``
+ * drives the transition rather than ``display`` so the button keeps
+ * its layout box and the copy / paste keyboard shortcut path can
+ * still resolve focus to it via tab navigation.
+ *
+ * Touch / no-hover devices keep the actions visible — a trackpad
+ * researcher hovers; an iPad-only researcher can't, so the row
+ * unhides via the ``@media (hover: none)`` rule below. The actions
+ * stay outside the bubble (sit beside it) so they don't push the
+ * text reflow on hover. */
+.message-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease-out;
+  pointer-events: none;
+}
+
+.message:hover .message-actions,
+.message-actions:has(:focus-visible) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .message-actions {
+    opacity: 0.65;
+    pointer-events: auto;
+  }
+}
+
+/* User bubbles right-align; their action row should follow. */
+.message.user .message-actions {
+  justify-content: flex-end;
+}
+
+.message.assistant .message-actions {
+  justify-content: flex-start;
+  /* The assistant bubble has no left padding (sits flush with the
+   * column edge), so align the action row to the same edge. */
+  padding-left: 0;
+}
+
+.message-action-btn {
+  /* Frame-less icon — just the glyph floats next to the bubble. No
+   * border / no background, so it reads as an inline action affordance
+   * the way GitHub / Linear / Slack render their per-message copy
+   * icons. The bubble itself is the visual container; a second box
+   * around the icon would compete with it.
+   *
+   * ``currentColor`` on the SVG stroke means the icon inherits this
+   * button's ``color``, so dark / light mode each pick the right
+   * ink without per-mode rules. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.12s, transform 0.12s;
+}
+
+.message-action-btn:hover,
+.message-action-btn:focus-visible {
+  /* Hover lifts to the theme's primary text color. Subtle scale so
+   * the affordance is felt without a box appearing under it. */
+  color: var(--text);
+  transform: scale(1.08);
+  outline: none;
+}
+
+/* "Copied" confirmation — pulse to the theme's highlight color so
+ * the receipt stays inside the existing palette (teal in light mode,
+ * pink in dark mode) rather than introducing a green that doesn't
+ * appear anywhere else in the UI. The icon swap (copy → checkmark)
+ * is the primary signal; the color change reinforces it. */
+.message-action-btn.copied {
+  color: var(--accent);
+}
+
+/* Inline edit mode on a user bubble. The bubble's body is replaced
+ * with a textarea + Run / Cancel; the wrapper keeps the same
+ * right-aligned layout, image row above and attachments row below
+ * (if any) sit untouched. The textarea picks up the bubble's pink
+ * fill so the edit mode reads as a continuation of the bubble,
+ * not a separate input form. */
+.message-edit-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  /* Force a sensible minimum width so a short edited message
+   * doesn't shrink the editor to a chip. ``.message.user`` is a
+   * flex column with ``align-items: flex-end``; align-self keeps
+   * the editor on the right edge. */
+  min-width: 320px;
+  max-width: 75%;
+  align-self: flex-end;
+}
+
+.message-edit-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--accent);
+  background: var(--bg-user);
+  color: var(--text);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 60px;
+  outline: none;
+  /* Subtle accent ring so an active editor is unambiguous when
+   * there are static bubbles around it. */
+  box-shadow: 0 0 0 2px var(--accent-soft, rgba(214, 99, 122, 0.18));
+}
+
+.message-edit-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft, rgba(214, 99, 122, 0.28));
+}
+
+.message-edit-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.message-edit-btn-cancel,
+.message-edit-btn-run {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s,
+              transform 0.12s, box-shadow 0.12s;
+}
+
+.message-edit-btn-cancel {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.message-edit-btn-cancel:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.message-edit-btn-run {
+  background: var(--accent);
+  color: var(--bg);
+  border: 1px solid var(--accent);
+}
+
+.message-edit-btn-run:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.message-edit-btn-cancel:disabled,
+.message-edit-btn-run:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Hide the per-bubble actions row while THIS bubble is in edit
+ * mode — the textarea has its own Run / Cancel; a hovering copy
+ * icon over an active editor would just be visual noise. */
+.message.editing .message-actions {
+  display: none;
+}
+
+.message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0 4px;
+  justify-content: flex-end;  /* user messages right-align */
+}
+
+.message-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+  /* Tinted accent fill so the 1px border reads in both themes.
+   * The previous ``var(--accent-soft)`` resolved to an OPAQUE
+   * blue-gray in light mode (the same hue family as the teal
+   * ``var(--accent)`` border), washing the border out and
+   * producing the "no accent ring in light mode" bug. The
+   * rgba fallback that lived here as the second arg to var()
+   * was never reachable because --accent-soft is always
+   * defined. ``color-mix`` derives a translucent tint of
+   * whichever accent the active theme has, so the solid
+   * border now contrasts against a lighter version of the
+   * same hue in both modes. */
+  background: var(--accent-soft);  /* fallback for engines without color-mix */
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* Image thumbnails in the user-bubble row. Same right-align as
+ * message-attachments so they cluster on the user's side of the
+ * column. Click expands to a lightbox overlay. */
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 6px;
+  justify-content: flex-end;
+}
+
+.message-image-thumb {
+  max-width: 240px;
+  max-height: 180px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: zoom-in;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.message-image-thumb:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* Lightbox overlay — full-viewport translucent backdrop with the
+ * image at its natural aspect ratio. Click anywhere or press Esc
+ * to close. */
+.image-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  cursor: zoom-out;
+  /* Generous padding so the image breathes on widescreen displays
+   * but isn't pinned to the viewport edges on narrow ones. */
+  padding: 16px;
+}
+
+.image-lightbox-img {
+  /* Fill nearly the full viewport — Stata graphs are exported at
+   * 1600px so we want the lightbox to actually USE that resolution
+   * instead of squashing it down. ``image-rendering`` keeps lines
+   * crisp on retina displays; without it browsers sometimes apply
+   * a soft blur when scaling up. */
+  max-width: 96vw;
+  max-height: 96vh;
+  width: auto;
+  height: auto;
+  border-radius: 6px;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6);
+  image-rendering: -webkit-optimize-contrast;
+}
+
+#compose-form.drop-target {
+  /* Visual cue while an image is being dragged over the composer.
+   * Pink dashed outline reads as "drop here" without the landing
+   * page's full drop-zone chrome. */
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+#compose-form {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  /* Horizontal layout: textarea on the left, send/stop icon on the
+   * right, both inside one rounded box. ``align-items: flex-end``
+   * pins the button to the bottom as the textarea grows upward —
+   * familiar desktop-chat composer shape. */
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* Lifted surface (--bg-surface) so the form reads as a distinct
+   * input area against the composer's transparent footer and the
+   * message background. */
+  background: var(--bg-surface);
+  transition: border-color 0.15s;
+}
+
+#compose-form:focus-within {
+  border-color: var(--accent);
+}
+
+#compose-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 4px;
+  font-size: 15px;
+  line-height: 1.5;
+  font-family: inherit;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  resize: none;
+  max-height: 220px;
+}
+
+#compose-input:focus {
+  outline: none;
+}
+
+.composer-action {
+  /* Low-chrome icon button sitting next to the textarea. Send and
+   * Stop share a footprint so toggling between them doesn't reflow.
+   * No accent background — a plain glyph that darkens on hover. */
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+}
+
+.composer-action:hover:not(:disabled) {
+  background: var(--bg-surface);
+  color: var(--text);
+}
+
+.composer-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.composer-action.stop {
+  /* Empty square at the center, wrapped in a lighter border. No
+   * filled glyph — the button's own border is the square. Calm
+   * in-flight state, no red alarm. */
+  border: 1px solid var(--border);
+  background: transparent;
+}
+
+.composer-action.stop:hover:not(:disabled) {
+  background: var(--bg);
+  border-color: var(--text-dim);
+}
+
+.composer-action.stop .stop-square {
+  /* Small solid square centered inside the button. The surrounding
+   * border + this inner square together read as "stop" without
+   * needing an svg icon. */
+  display: block;
+  width: 8px;
+  height: 8px;
+  background: var(--text-dim);
+  border-radius: 1px;
+}
+
+.composer-action.stop:hover .stop-square {
+  background: var(--text);
+}
+
+/* Permission controls share one anchored popup implementation. */
+
+.policy-popup-empty {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.policy-row {
+  display: contents;
+}
+
+.policy-row-name {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.policy-row-select {
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  min-width: 220px;
+}
+
+.policy-row-select:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.policy-row-select:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.policy-row-err {
+  grid-column: 1 / -1;
+  color: #c23;
+  font-size: 11px;
+}
+
+/* --- composer meta bar (below the chat box) ---
+ * A thin status row under the composer, hosting the Permission
+ * chip on the left. Small, dim text surfaces on hover. Room here for future
+ * indicators like a model badge or a turn-usage counter. */
+
+.composer-meta {
+  max-width: var(--max-width);
+  margin: 6px auto 0;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-dim);
+  gap: 10px;
+  position: relative;  /* anchors the absolutely-positioned #status-line */
+}
+
+.composer-meta-spacer {
+  flex: 1 1 auto;
+}
+
+.context-chip {
+  /* Right-aligned context-usage indicator. Static (no click target),
+   * so no hover state or border — just dim text that warms up as
+   * usage climbs. */
+  cursor: default;
+  font-variant-numeric: tabular-nums;  /* digits don't jitter as count changes */
+  opacity: 1;
+  transition: opacity 0.15s ease-out;
+}
+
+/* In-flight recount: fade the value so the researcher knows the
+ * displayed number is from before their last action (rewind, turn
+ * complete, attachment add/remove, session switch). The number
+ * stays readable rather than blanking out — a stale-but-visible
+ * value beats no value during the ~200ms-1s round-trip. Snaps back
+ * to full opacity when the matching count response lands. A newer
+ * recount supersedes an older one via the request-id check, so a
+ * slow response from a stale state never gets to flip the chip
+ * back to solid. */
+.context-chip.stale {
+  opacity: 0.4;
+}
+
+
+/* --- model picker popup rows --- */
+
+.model-option {
+  position: relative;   /* anchors the tooltip pseudo-element */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+#model-popup {
+  /* Override the shared .policy-popup's overflow-y: auto so the
+   * per-option hover tooltips aren't clipped when they extend
+   * outside the popup's left edge. The model list is always short
+   * (three entries), so max-height scrolling isn't needed here. */
+  overflow: visible;
+  max-height: none;
+}
+
+.model-option[data-tooltip]:hover::after {
+  /* Short hover note sitting just outside the popup's left edge.
+   * width: max-content keeps the pill exactly as wide as its text,
+   * and white-space: nowrap ensures short labels stay on one line
+   * rather than stretching the pill toward the tooltip's max-width.
+   */
+  content: attr(data-tooltip);
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  padding: 6px 10px;
+  width: max-content;
+  max-width: 180px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+
+.model-option + .model-option {
+  margin-top: 4px;
+}
+
+.model-option:hover {
+  background: var(--bg);
+}
+
+.model-option.active {
+  background: var(--bg);
+  border-color: var(--accent-soft);
+}
+
+.model-option-name {
+  font-weight: 500;
+}
+
+.model-option-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-option-ctx {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+/* Per-row "view pricing" link — a $ sign that lights up on hover.
+ * Opacity is low at rest so it doesn't crowd the model name; fades
+ * in when the cursor enters the row, then becomes fully visible when
+ * the cursor lands on the link itself. */
+.model-option-price {
+  background: none;
+  border: none;
+  padding: 0 4px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.model-option:hover .model-option-price {
+  opacity: 0.6;
+}
+
+.model-option-price:hover {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.model-option.unconfigured {
+  /* Dimmed but still clickable — the click takes the researcher to
+   * the auth screen so they can paste a key for that provider. */
+  opacity: 0.55;
+}
+
+.model-option.unconfigured .model-option-name {
+  font-weight: 400;
+}
+
+/* Per-provider section header inside the model picker popup. */
+.model-group-header {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 8px 10px 4px;
+  margin-top: 4px;
+}
+
+.model-group-header:first-child {
+  margin-top: 0;
+}
+
+/* --- effort section inside the model picker --- */
+
+/* Effort suffix on the composer chip: "Sonnet 5 · xhigh". Dim mono
+ * so it reads as a setting, not part of the model name. */
+.model-chip-effort {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+/* Segmented control — one flat row, equal-width cells, single
+ * outer border. Same visual family as .model-option (rounded, bg
+ * on hover, accent-soft border on active) so it reads as part of
+ * the same picker rather than a bolted-on widget. */
+.effort-seg {
+  display: flex;
+  gap: 2px;
+  margin: 2px 10px 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+}
+
+.effort-seg-btn {
+  position: relative;
+  flex: 1 1 0;
+  padding: 5px 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.effort-seg-btn:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.effort-seg-btn.active {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--accent-soft);
+  font-weight: 600;
+}
+
+/* Small dot under the catalog default so a researcher who moved
+ * off it can see where "back to normal" is. */
+.effort-seg-btn.is-default::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  width: 3px;
+  height: 3px;
+  margin-left: -1.5px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  opacity: 0.6;
+}
+
+.effort-seg-btn.active.is-default::after {
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+
+.context-chip:hover,
+.context-chip.open {
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.context-chip.warn {
+  /* Dusty purple — stands apart from the pink spectrum without
+   * being alarmist. "Heads up, starting to fill." */
+  color: var(--dusty-purple);
+}
+
+.context-chip.danger {
+  /* Hot pink from the palette — the most saturated color in the
+   * room, so it catches the eye without clashing. "Next turn may
+   * hit the ceiling." */
+  color: var(--hot-pink);
+  font-weight: 600;
+}
+
+.context-chip.over {
+  /* Past 100% of the model's context window. ``danger`` warns about
+   * approach; ``over`` says the next turn is going to fail or get
+   * silently truncated. Same hot-pink, but bold + a faint background
+   * pulse so it stops blending with a normal "full but fine" state. */
+  color: var(--hot-pink);
+  font-weight: 700;
+  background: rgba(224, 90, 139, 0.10);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.permission-wrap {
+  /* Anchor for the popup — position: absolute popup resolves
+   * against this wrapper, so the popup always appears just above
+   * the chip regardless of where we put the chip on the page. */
+  position: relative;
+}
+
+.composer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: transparent;
+  color: var(--text-dim);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+
+.composer-chip:hover,
+.composer-chip.open {
+  color: var(--text);
+  background: var(--bg-surface);
+}
+
+.chip-arrow {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+#policy-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.policy-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);  /* sit just above the chip */
+  left: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  min-width: 320px;
+  /* 560px (was 480) buys ~50 chars per line at 12px monospace
+   * for the Files panel — long but realistic labels like
+   * "H1a Path A: op margin, np_only_within_cancer_type" fit on
+   * one line, the rest wraps to a second line under the
+   * actionable-row rule below. */
+  max-width: 560px;
+  max-height: 300px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.policy-popup.hidden {
+  display: none;
+}
+
+.policy-popup-header {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.policy-popup .policy-card-list {
+  /* Override the grid to stack vertically in the narrower popup.
+   * Each row: name on one line, dropdown on the next. */
+  display: block;
+}
+
+.policy-popup .policy-row {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.policy-popup .policy-row:last-child {
+  margin-bottom: 0;
+}
+
+.policy-popup .policy-row-name {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.policy-popup .policy-row-select {
+  width: 100%;
+  min-width: 0;
+}
+
+/* --- redesigned permission popup: button-based tier selector --- */
+
+.policy-dataset {
+  margin-top: 12px;
+}
+
+.policy-dataset:first-child {
+  margin-top: 0;
+}
+
+.policy-dataset-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.policy-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.policy-option {
+  /* Each tier sits as a full-width row inside a stacked list.
+   * The selected one is tinted with bg-surface and uses the
+   * accent-soft border on the check dot. */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.policy-option:hover:not(.selected) {
+  background: var(--bg-surface);
+}
+
+.policy-option.selected {
+  background: var(--bg-surface);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.policy-option-check {
+  flex: 0 0 auto;
+  width: 14px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-dim);
+}
+
+.policy-option.selected .policy-option-check {
+  color: var(--accent);
+}
+
+.policy-option-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- rendered markdown (assistant text) --- */
+
+.message.assistant .message-body {
+  white-space: normal;  /* override the default pre-wrap — we render blocks */
+}
+
+.message.assistant .message-body p {
+  margin: 0 0 10px 0;
+}
+
+.message.assistant .message-body p:last-child {
+  margin-bottom: 0;
+}
+
+.message.assistant .message-body h1,
+.message.assistant .message-body h2,
+.message.assistant .message-body h3 {
+  margin: 14px 0 8px 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.message.assistant .message-body h1 { font-size: 1.3em; }
+.message.assistant .message-body h2 { font-size: 1.15em; }
+.message.assistant .message-body h3 { font-size: 1.05em; }
+
+/* The ``chat-ol`` counter is reset per <ol> via an inline
+ * ``style="counter-reset: chat-ol N"`` emitted by the markdown
+ * renderer (see ``renderList`` in ``markdown.js``). N matches the
+ * source-text first-item number minus one, so the first li
+ * increments to exactly the number the markdown wrote. This means
+ * two distinct numbered lists in one assistant reply each restart
+ * at their own source numbers (1, 2, 3 then 1, 2 in source =
+ * 1, 2, 3 then 1, 2 on screen) — fixing the carry-over from the
+ * earlier message-body-scoped reset. The trade-off: assistant
+ * loose-list idiom of ``1. **A.**\n\nbody\n\n1. **B.**\n\nbody``
+ * now renders both items as "1." literally. If you want sequential,
+ * write 1. then 2. */
+
+.message.assistant .message-body li ol {
+  /* Nested ordered lists need their OWN counter scope. Without
+   * this reset they inherit the message-body counter and continue
+   * the parent numbering — a structured "1. parent / 1.1 child"
+   * answer would render as a single flat sequence. The reset
+   * creates a fresh ``chat-ol`` counter inside the nested list so
+   * its items count 1, 2, 3 independently; the outer list resumes
+   * from where it left off after the nested subtree ends. */
+  counter-reset: chat-ol;
+}
+
+.message.assistant .message-body ul,
+.message.assistant .message-body ol {
+  margin: 0 0 10px 0;
+  padding-left: 0;
+  list-style: none;
+  /* Each list item shrinks to its own text (see the li rule below).
+   * Without ``align-items: flex-start`` on the list, every li would
+   * still stretch to the list's content width and a 3-word bullet
+   * sitting next to a 30-word sibling would paint as wide as the
+   * sibling on selection. ``display: flex`` here gives us the
+   * per-item shrink-wrap inside the list. */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.message.assistant .message-body li {
+  /* Bullet is rendered inside the li's content box via ::before
+   * (not as a native ::marker outside it). The native marker lives
+   * in the parent's padding gutter, where WebKit paints text-
+   * selection background but does NOT repaint it on selection
+   * clear — leaving thin colored bars on the left of every li
+   * after a multi-bullet drag-select. Painting the bullet inside
+   * the content box keeps selection inside one rectangle that the
+   * compositor clears uniformly.
+   *
+   * ``width: fit-content; max-width: 100%`` shrinks each li to its
+   * own text width so a short bullet doesn't paint a selection
+   * rectangle as wide as a long sibling. Bounded to the list's
+   * content width so very long single-line items wrap normally. */
+  margin: 2px 0;
+  padding-left: 1.4em;
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.message.assistant .message-body ul > li::before {
+  content: "\2022";  /* • */
+  position: absolute;
+  left: 0.4em;
+  top: 0;
+  color: inherit;
+}
+
+.message.assistant .message-body ol > li {
+  counter-increment: chat-ol;
+}
+
+.message.assistant .message-body ol > li::before {
+  content: counter(chat-ol) ".";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1.2em;
+  text-align: right;
+  color: inherit;
+}
+
+.message.assistant .message-body code {
+  background: rgba(0, 0, 0, 0.08);
+  /* Horizontal-only padding. A vertical pad (even 1px) makes the
+   * inline-code line-box taller than surrounding prose, which the
+   * browser then paints as a separate selection rectangle on
+   * drag-select — chunky, gappy highlighting at every backtick
+   * boundary. With ``padding: 0 5px`` the line-box matches the
+   * prose's, and selection flows across code spans as one
+   * continuous rectangle per visual line. */
+  padding: 0 5px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+@media (prefers-color-scheme: dark) {
+  .message.assistant .message-body code {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.message.assistant .message-body pre {
+  background: var(--code-bg);
+  color: var(--code-text);
+  padding: 12px 14px;
+  border-radius: 8px;
+  /* The pre is a flex item of ``.message-body`` (which is
+   * ``display: flex; flex-direction: column; align-items:
+   * flex-start``). With the default ``min-width: auto`` and
+   * ``align-items: flex-start``, the pre sizes to its content's
+   * intrinsic width — so a long unwrappable line (a ``do`` file
+   * with a 200-char esttab call, a base64 blob, a long URL) makes
+   * the pre wider than the message column and the overflow leaks
+   * up to ``.messages``, which paints a page-wide horizontal
+   * scrollbar. ``min-width: 0`` + ``max-width: 100%`` cap the pre
+   * at the body's width; ``overflow-x: auto`` then keeps the long
+   * line accessible via the pre's OWN scrollbar instead. */
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  margin: 8px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.message.assistant .message-body pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+
+.message.assistant .message-body blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: var(--text-dim);
+}
+
+/* Markdown tables get wrapped in ``.md-table`` by the markdown
+ * renderer (see web/markdown.js). The wrapper carries the
+ * horizontal scroll so the table itself can lay out normally as
+ * a real <table> — ``display: block`` on the table directly was
+ * the source of the duplicated/awkward scrollbar (rendered
+ * before/after the table area instead of inside a clean
+ * container). Custom thin scrollbars on top so the wrapper isn't
+ * visually heavy when scroll IS needed; on rows that fit, no
+ * scrollbar shows at all. */
+.message.assistant .message-body .md-table {
+  margin: 10px 0;
+  max-width: 100%;
+  overflow-x: auto;
+  /* Firefox thin scrollbar. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.message.assistant .message-body .md-table::-webkit-scrollbar {
+  height: 6px;
+}
+
+.message.assistant .message-body .md-table::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.message.assistant .message-body .md-table::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.message.assistant .message-body table {
+  /* Coefficient tables etc. — researchers are used to reading
+   * them in R/Stata output. Keep the styling restrained so they
+   * don't fight the surrounding text. The wrapper above handles
+   * any horizontal overflow. */
+  border-collapse: collapse;
+  margin: 0;
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+  width: auto;
+}
+
+.message.assistant .message-body table th,
+.message.assistant .message-body table td {
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.message.assistant .message-body table th {
+  /* Use the same surface color as the session sidebar — cream-rose
+   * in light, warm charcoal in dark — so the header reads as page
+   * chrome distinct from the body data without inventing a new
+   * tint. Borders match the surrounding palette: mauve underline
+   * keeps the warm-pink tone in light mode; dark mode uses the
+   * subdued accent-soft. ``--bg-surface`` flips automatically with
+   * the theme toggle and ``prefers-color-scheme``, so this rule
+   * doesn't need its own dark-mode override. */
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--mauve);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .message.assistant .message-body table th {
+    border-bottom-color: var(--accent-soft);
+  }
+}
+
+:root[data-theme="dark"] .message.assistant .message-body table th {
+  border-bottom-color: var(--accent-soft);
+}
+
+.message.assistant .message-body table tr:last-child td {
+  border-bottom: none;
+}
+
+.message.assistant .message-body a {
+  color: var(--accent);
+}
+
+.message.assistant .message-body strong {
+  font-weight: 600;
+}
+
+/* --- result panel (submit_script / expand_result) --- */
+
+.result-panel {
+  max-width: var(--max-width);
+  width: 100%;
+  margin: 0 auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+
+.result-panel.error {
+  border-color: #c23;
+}
+
+.result-panel section {
+  border-bottom: 1px solid var(--border);
+}
+
+.result-panel section:last-of-type {
+  border-bottom: none;
+}
+
+.result-header {
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.03);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .result-header {
+    background: rgba(255, 255, 255, 0.03);
+  }
+}
+
+.result-toggle {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-toggle .toggle-arrow {
+  transition: transform 0.15s;
+  font-size: 10px;
+}
+
+.result-sanitized.collapsed .toggle-arrow {
+  transform: rotate(-90deg);
+}
+
+.result-sanitized.collapsed pre {
+  display: none;
+}
+
+.result-stderr .result-header {
+  color: #b7791f;
+  background: rgba(183, 121, 31, 0.08);
+}
+
+.result-panel pre {
+  margin: 0;
+  padding: 12px 14px;
+  background: transparent;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre;
+  color: var(--text);
+}
+
+.result-note {
+  padding: 6px 14px;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+@media (prefers-color-scheme: dark) {
+  .result-note {
+    background: rgba(255, 255, 255, 0.02);
+  }
+}
+
+.result-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.02);
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  .result-actions {
+    background: rgba(255, 255, 255, 0.02);
+  }
+}
+
+.result-action {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--bg-surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.result-action:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.result-action:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* --- scrollbar polish ---
+ * WKWebView uses overlay scrollbars when macOS is set to "Show
+ * scroll bars: Automatically" or "When scrolling", so the rail only
+ * fades in on scroll. `overflow-y: scroll` on the containers below
+ * forces a persistent, styled scrollbar regardless of the system
+ * setting. Colors use solid rgba against the pink light-mode bg so
+ * the thumb stays visible without relying on opacity.
+ */
+
+.messages {
+  overflow-y: scroll;
+}
+
+.sidebar-list {
+  overflow-y: scroll;
+}
+
+/* The selectors below cover three scrollable surfaces:
+ *   - the chat transcript itself (.messages)
+ *   - the session sidebar list
+ *   - any scrollable thing inside the transcript (.messages *)
+ * That last one catches the per-tool-card output panes — the raw
+ * R/Stata stdout block and the sanitized payload viewer. They use
+ * overflow:auto, and without this rule they fall back to WebKit's
+ * default white-track / gray-thumb scrollbar that clashes hard
+ * with the dark surrounding panel. */
+.messages::-webkit-scrollbar,
+.sidebar-list::-webkit-scrollbar,
+.messages *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;   /* horizontal scrollbar (e.g. wide tables) gets the same treatment */
+}
+
+/* Was ``transparent`` everywhere — but in WKWebView a transparent
+ * track can fall through to the browser's default native fill, which
+ * paints white in dark mode (the bug researchers hit on the
+ * .tool-code code pane once it overflowed). Painting an explicit
+ * themed color closes that hole. We use each container's own bg so
+ * the rail blends in: messages sit on --bg, the sidebar sits on
+ * --bg-surface. */
+.messages::-webkit-scrollbar-track,
+.messages *::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+.sidebar-list::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+}
+
+.messages::-webkit-scrollbar-corner,
+.messages *::-webkit-scrollbar-corner {
+  background: var(--bg);
+}
+
+.sidebar-list::-webkit-scrollbar-corner {
+  background: var(--bg-surface);
+}
+
+/* Default (light) scrollbar — burgundy at enough opacity to stay
+ * visible on the pink bg. The light rule is the base; dark mode
+ * overrides it only when the OS prefers dark AND the researcher
+ * hasn't forced light via the topbar toggle. Without the
+ * :not([data-theme="light"]) guard, the scrollbar kept rendering
+ * in cream (the dark-mode color) when the OS was dark but the
+ * theme toggle was set to light, so it vanished against the pink. */
+.messages::-webkit-scrollbar-thumb,
+.sidebar-list::-webkit-scrollbar-thumb,
+.messages *::-webkit-scrollbar-thumb {
+  background: rgba(93, 44, 62, 0.45);
+  border-radius: 5px;
+}
+
+.messages::-webkit-scrollbar-thumb:hover,
+.sidebar-list::-webkit-scrollbar-thumb:hover,
+.messages *::-webkit-scrollbar-thumb:hover {
+  background: rgba(93, 44, 62, 0.7);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .messages::-webkit-scrollbar-thumb,
+  :root:not([data-theme="light"]) .sidebar-list::-webkit-scrollbar-thumb,
+  :root:not([data-theme="light"]) .messages *::-webkit-scrollbar-thumb {
+    background: rgba(240, 227, 214, 0.25);
+  }
+  :root:not([data-theme="light"]) .messages::-webkit-scrollbar-thumb:hover,
+  :root:not([data-theme="light"]) .sidebar-list::-webkit-scrollbar-thumb:hover,
+  :root:not([data-theme="light"]) .messages *::-webkit-scrollbar-thumb:hover {
+    background: rgba(240, 227, 214, 0.45);
+  }
+}
+
+:root[data-theme="dark"] .messages::-webkit-scrollbar-thumb,
+:root[data-theme="dark"] .sidebar-list::-webkit-scrollbar-thumb,
+:root[data-theme="dark"] .messages *::-webkit-scrollbar-thumb {
+  background: rgba(240, 227, 214, 0.25);
+}
+:root[data-theme="dark"] .messages::-webkit-scrollbar-thumb:hover,
+:root[data-theme="dark"] .sidebar-list::-webkit-scrollbar-thumb:hover,
+:root[data-theme="dark"] .messages *::-webkit-scrollbar-thumb:hover {
+  background: rgba(240, 227, 214, 0.45);
+}
+
+/* ----- @-mention dropdown ------------------------------------------------ */
+.mention-popup {
+  position: fixed;
+  z-index: 1000;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  padding: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.mention-popup.hidden { display: none; }
+
+.mention-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mention-row {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+}
+
+.mention-row:hover,
+.mention-row.selected { background: var(--bg); }
+
+.mention-row.selected {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.mention-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.mention-icon-script { color: var(--accent); }
+.mention-icon-data   { color: var(--text); }
+.mention-icon-graph  { color: var(--accent-soft); }
+.mention-icon-log    { color: var(--text-dim); }
+
+.mention-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+}
+
+.mention-meta {
+  color: var(--text-dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.mention-empty {
+  padding: 10px 12px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.mention-hint {
+  padding: 6px 10px 4px;
+  margin-top: 2px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+/* ----- send-while-busy queue --------------------------------------------- */
+.message.user.queued .message-body,
+.message.user.queued .message-attachment-chip {
+  opacity: 0.65;
+}
+
+.message.user.queued .message-body::after {
+  content: 'queued';
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.message.user.not-sent .message-body {
+  opacity: 0.45;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.message.user.not-sent .message-body::after {
+  content: 'not sent, Stop pressed';
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 500;
+  text-decoration: none;
+  opacity: 0.9;
+}
+
+/* Install-packages confirmation modal. Hard consent gate that fires
+ * before the install_packages tool actually runs the package manager.
+ * Modal because the install mutates the user's machine outside the
+ * sandbox; using a chip or toast would let the researcher miss the
+ * prompt and have it silently default to deny on timeout.
+ *
+ * Visual vocabulary mirrors the feedback modal (.feedback-card,
+ * .feedback-button*) so dialogs across the app feel consistent and
+ * pick up the same light/dark theme tokens. */
+.install-confirmation-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 24px;
+}
+.install-confirmation-card {
+  width: 480px;
+  max-width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 20px 22px;
+  background: var(--bg-surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  font-family: inherit;
+}
+.install-confirmation-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.install-confirmation-session {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  display: inline-block;
+}
+.install-confirmation-session-background {
+  /* A request from a session other than the one currently on
+     screen -- reuse the warning palette so it reads as "pay
+     attention" without a brand-new color needing its own theme
+     entry. */
+  color: var(--warning, #b45309);
+  background: rgba(180, 83, 9, 0.10);
+  border-color: transparent;
+}
+.install-confirmation-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.install-confirmation-pkgs {
+  list-style: disc inside;
+  margin: 0 0 16px;
+  max-height: 180px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.install-confirmation-pkgs li {
+  line-height: 1.5;
+}
+.install-confirmation-more {
+  list-style: none;
+  font-style: italic;
+  color: var(--text-dim);
+}
+.install-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.install-confirmation-deny,
+.install-confirmation-approve {
+  /* Equal min-width so Deny / Install (or Reinstall / Remove) read as
+   * equal-weight choices instead of the primary action looking outsized
+   * just because its label is longer. 100px fits "Reinstall" at 13px
+   * Lexend with the existing horizontal padding and leaves "Deny"
+   * comfortably centered. */
+  min-width: 100px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  transition: background 0.15s, border-color 0.15s, filter 0.15s;
+}
+.install-confirmation-deny:hover {
+  background: var(--bg-surface);
+}
+.install-confirmation-approve {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.install-confirmation-approve:hover {
+  filter: brightness(1.05);
+  background: var(--accent);
+}
+
+
+/* --- Sift wordmark (text-based; replaces the raster wordmark) --- */
+.landing-wordmark {
+  font-size: 56px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text, #1a1d24);
+  user-select: none;
+}
+.landing-tagline {
+  margin-top: 10px;
+  font-size: 15px;
+  color: var(--text-secondary, #6b7280);
+}
+
+/* --- thinking-dots loader --- */
+.thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 10px;
+}
+.thinking-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.35;
+  animation: sift-dot 1.2s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes sift-dot {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
+
+/* --- privacy ledger modal --- */
+.ledger-card { max-width: 720px; width: min(720px, 92vw); }
+.ledger-table-wrap {
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+}
+.ledger-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ledger-table th, .ledger-table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+.ledger-table th {
+  position: sticky; top: 0;
+  background: var(--bg, #fff);
+  font-weight: 600;
+}
+.ledger-chain-ok { color: var(--success, #16a34a); }
+.ledger-chain-bad { color: var(--error, #dc2626); font-weight: 600; }
+
+/* Privacy Inspector: subheads within the Budgets / Patterns tabs. */
+.privacy-subhead {
+  margin: 14px 0 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.privacy-subhead:first-child { margin-top: 0; }
+
+
+/* --- analysis-plan checklist card --- */
+.analysis-plan-card .plan-body { padding: 10px 14px; }
+.plan-step {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 13.5px;
+}
+.plan-mark { width: 1.2em; text-align: center; flex: none; }
+.plan-step-done { color: var(--text-secondary, #6b7280); }
+.plan-step-done .plan-mark { color: var(--success, #16a34a); }
+.plan-step-active { font-weight: 600; }
+.plan-step-active .plan-mark { color: var(--accent, #2563eb); }
+.plan-step-pending, .plan-step-skipped {
+  color: var(--text-secondary, #6b7280);
+}
+.plan-step-skipped .plan-title { text-decoration: line-through; }
+
+
+/* --- export modal --- */
+.export-option { margin-bottom: 18px; }
+.export-option .feedback-note { margin-top: 6px; }
+.export-option button[disabled] { opacity: 0.55; cursor: default; }
+.export-option .feedback-button + .feedback-button { margin-left: 8px; }
+
+
+/* --- analysis checkpoints modal --- */
+.checkpoints-create-row {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 4px;
+}
+.checkpoints-label-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  font-size: 13.5px;
+  background: var(--bg, #fff);
+  color: inherit;
+}
+.checkpoints-list {
+  max-height: 32vh;
+  overflow-y: auto;
+  margin: 10px 0;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+}
+.checkpoint-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+.checkpoint-row:last-child { border-bottom: none; }
+.checkpoint-select { flex: none; display: flex; align-items: center; }
+.checkpoint-info { flex: 1; min-width: 0; }
+.checkpoint-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.checkpoint-meta {
+  font-size: 11.5px;
+  color: var(--text-secondary, #6b7280);
+  margin-top: 2px;
+}
+.checkpoint-actions { flex: none; display: flex; gap: 6px; }
+.checkpoint-actions .feedback-button { padding: 4px 10px; font-size: 12.5px; }
+.checkpoints-compare-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.checkpoint-compare-group { margin-top: 12px; }
+.checkpoint-compare-group-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+.checkpoint-compare-empty {
+  font-size: 12.5px;
+  color: var(--text-secondary, #6b7280);
+  font-style: italic;
+}
+.checkpoint-compare-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+.checkpoint-compare-list li { padding: 2px 0; }
+.checkpoint-compare-tally {
+  font-size: 12.5px;
+  color: var(--text-secondary, #6b7280);
+  margin-top: 4px;
+}
+.checkpoint-compare-tally-title { font-weight: 600; color: inherit; }
+
+
+/* --- dataset profile panel --- */
+.data-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.data-tab {
+  padding: 4px 10px;
+  font-size: 12.5px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+}
+.data-tab.active {
+  color: var(--text, #1a1d24);
+  border-color: var(--accent, #2563eb);
+  font-weight: 600;
+}
+.data-summary {
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 10px;
+}
+.data-flag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-2, #f3f4f6);
+  color: var(--text-secondary, #6b7280);
+  margin-left: 4px;
+}
+
+
+/* --- dataset health summary --- */
+.data-health {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: var(--radius, 10px);
+  background: var(--surface-2, #f9fafb);
+}
+.data-health-score-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.data-health-badge {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: white;
+}
+.data-health-good { background: #16a34a; }
+.data-health-fair { background: #d97706; }
+.data-health-poor { background: #dc2626; }
+.data-health-label {
+  font-size: 12.5px;
+  color: var(--text-secondary, #6b7280);
+}
+.data-health-issues {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: var(--text, #1a1d24);
+}
+.data-health-issue { margin-bottom: 3px; line-height: 1.4; }
+.data-health-issue-warn { color: #b45309; }
+.data-health-issue-info { color: var(--text-secondary, #6b7280); }
+.data-health-discuss-btn {
+  margin-top: 10px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--accent, #2563eb);
+  background: transparent;
+  border: 1px solid var(--accent, #2563eb);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.data-health-discuss-btn:hover { background: var(--surface-2, #f3f4f6); }
+
+
+/* --- landing: sample-data on-ramp --- */
+.landing-sample {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.landing-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13.5px;
+  color: var(--accent, #2563eb);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.landing-link-btn:disabled { opacity: 0.5; cursor: default; }
+.landing-sample-note {
+  font-size: 11.5px;
+  color: var(--text-secondary, #6b7280);
+}
+
+
+/* --- one-click "Analyze this dataset" entry point --- */
+.analyze-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 22px;
+}
+.analyze-action-btn {
+  padding: 12px 28px;
+  font-size: 14.5px;
+  font-weight: 600;
+  font-family: inherit;
+  color: white;
+  background: var(--accent, #2563eb);
+  border: 1px solid var(--accent, #2563eb);
+  border-radius: var(--radius, 10px);
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+.analyze-action-btn:hover { filter: brightness(1.08); }
+.analyze-action-btn:active { filter: brightness(0.95); }
+.analyze-action-hint {
+  max-width: 420px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary, #6b7280);
+}
+/* Same empty-session-only visibility rule as the starter chips. */
+.messages:not(.welcome-only) .analyze-action { display: none; }
+
+
+/* --- starter prompts on an empty session --- */
+.starter-prompts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+.starter-chip {
+  max-width: 520px;
+  padding: 9px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  color: var(--text, #1a1d24);
+  background: transparent;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+.starter-chip:hover { border-color: var(--accent, #2563eb); }
+/* Suggestions are an empty-session affordance only. Once the
+   conversation starts they would be clutter competing with the
+   transcript, so they leave with welcome-only mode. */
+.messages:not(.welcome-only) .starter-prompts { display: none; }
+
+
+/* --- session usage line in the ledger panel --- */
+.usage-line {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+}
+
+
+/* --- linkage + survey-design surfaces in the Data panel --- */
+.data-flag-design {
+  background: var(--accent-soft, #dbeafe);
+  color: var(--accent, #2563eb);
+}
+.data-design-note {
+  margin-top: 6px;
+  color: var(--warning, #b45309);
+  font-size: 12.5px;
+}
+
+/* --- semantic type + likely-target surfaces in the Data panel --- */
+.data-flag-target {
+  background: var(--accent-soft, #dbeafe);
+  color: var(--accent, #2563eb);
+}
+.data-target-note {
+  margin-top: 6px;
+  color: var(--text-secondary, #6b7280);
+  font-size: 12.5px;
+}
+.data-semantic-type {
+  font-size: 11px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.data-sheet-picker {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--text-secondary, #6b7280);
+}
+.data-sheet-picker select {
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: var(--surface, #fff);
+  color: var(--text, #1a1d24);
+}
+.link-pair {
+  margin: 14px 0 4px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.link-warn {
+  color: var(--warning, #b45309);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+/* Environment health banner (doctor_report). Sits between the
+   topbar and the message transcript; JS toggles .hidden and fills
+   #doctor-banner-text. Two severities share the container (blocked
+   vs warning) so a hard block reads more urgently than a degraded-
+   feature note without needing a second component. */
+.doctor-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  border-bottom: 1px solid var(--border);
+  background: rgba(180, 83, 9, 0.10);
+  color: var(--warning, #b45309);
+}
+.doctor-banner.doctor-banner-blocked {
+  background: rgba(220, 38, 38, 0.10);
+  color: var(--error, #c0392b);
+}
+.doctor-banner-text {
+  flex: 1;
+}
+.doctor-banner-text strong {
+  font-weight: 600;
+}
+.doctor-banner-dismiss {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0.75;
+}
+.doctor-banner-dismiss:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
+}

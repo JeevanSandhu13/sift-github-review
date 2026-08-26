@@ -1,0 +1,167 @@
+{
+  "title": "Sift formal threat model and data-flow boundary map",
+  "version": 1,
+  "reviewed_at": "2026-08-21",
+  "scope": "Desktop research assistant using researcher-supplied model and data-service credentials on macOS, Windows, and Linux.",
+  "security_objectives": [
+    "Raw observations remain local unless the researcher explicitly attaches content to a provider request.",
+    "Model-origin actions cannot bypass deterministic policy, sanitization, approval, sandbox, or export controls.",
+    "Credentials are stored in the OS credential service and are not placed in model prompts, execution environments, or error messages.",
+    "Every released analytical fact is disclosure-controlled, attributable, and tamper-evident.",
+    "A failure in parsing, policy loading, provenance validation, or cryptographic verification fails closed."
+  ],
+  "non_claims": [
+    "Sift does not claim that pattern matching proves HIPAA de-identification or eliminates re-identification risk.",
+    "A hash chain is tamper-evident, not tamper-proof against an attacker who can rewrite all local state.",
+    "Best-effort overwrite cannot guarantee erasure from SSD wear-levelled blocks, snapshots, or backups.",
+    "Prompt injection cannot be eliminated by text filtering; deterministic tool and output boundaries limit impact.",
+    "Sift's own testing is not an independent third-party penetration test."
+  ],
+  "actors": [
+    {"id": "researcher", "trust": "authorized human controlling the desktop session"},
+    {"id": "organization_admin", "trust": "authors policy outside researcher-writable storage"},
+    {"id": "model_provider", "trust": "external or local model endpoint; output is untrusted"},
+    {"id": "data_service", "trust": "database/cloud/research service; metadata and driver errors are untrusted"},
+    {"id": "dataset_author", "trust": "may be benign or malicious; all file content and metadata are untrusted"},
+    {"id": "local_attacker", "trust": "may read stolen storage or influence researcher-writable files"},
+    {"id": "supply_chain_attacker", "trust": "may target dependencies, build inputs, or distributed artifacts"}
+  ],
+  "data_classifications": ["public", "internal", "confidential", "regulated", "credential", "sanitized_release"],
+  "boundaries": [
+    {
+      "id": "B01-file-ingress",
+      "source": "researcher/dataset_author",
+      "destination": "session staging and local parsers",
+      "data": ["datasets", "documents", "images", "filenames", "labels"],
+      "controls": ["extension and signature validation", "size/member/decompression limits", "no-follow staging", "archive and symlink traversal rejection", "private file modes"],
+      "tests": ["tests/test_malicious_file_guards.py", "tests/test_format_selection.py", "tests/test_file_provenance.py", "tests/test_provider_attachments.py"]
+    },
+    {
+      "id": "B02-parser-profile",
+      "source": "local parser",
+      "destination": "schema/profile metadata",
+      "data": ["column names", "variable labels", "value labels", "summary statistics"],
+      "controls": ["text-safety chokepoint", "bounded sampling", "PII/PHI advisory detection", "privacy depth ceilings"],
+      "tests": ["tests/test_text_safety.py", "tests/test_pii_phi_detection.py", "tests/test_malicious_file_guards.py"]
+    },
+    {
+      "id": "B03-database-cloud-ingress",
+      "source": "data_service",
+      "destination": "approved local extract",
+      "data": ["credentials", "connection metadata", "query", "result rows", "driver errors"],
+      "controls": ["OS credential storage", "backend/host/region/project/account allowlists", "read-only SQL gate", "bounded local materialization", "credential and driver-error redaction", "extract hash and query fingerprint"],
+      "tests": ["tests/test_connectors.py", "tests/test_credential_redaction_fuzz.py", "tests/test_enterprise_policy.py", "tests/test_integrations.py"]
+    },
+    {
+      "id": "B04-user-provider",
+      "source": "researcher and local sanitized context",
+      "destination": "selected model endpoint",
+      "data": ["user message", "sanitized schema", "sanitized result summaries", "explicit attachments"],
+      "controls": ["provider/endpoint allowlists", "local-only mode", "optional content-free disclosure warning", "attachment validation and explicit staging", "provider privacy manifest"],
+      "tests": ["tests/test_integrations.py", "tests/test_enterprise_policy.py", "tests/test_provider_attachment_conformance.py", "tests/test_security_assurance.py"]
+    },
+    {
+      "id": "B05-provider-agent",
+      "source": "model_provider",
+      "destination": "agent loop and tool dispatcher",
+      "data": ["assistant text", "tool calls", "tool arguments"],
+      "controls": ["model output treated as untrusted", "JSON schemas", "tool allowlist", "researcher-only approvals", "deterministic validation", "bounded repair loop"],
+      "tests": ["tests/test_openai_compatible.py", "tests/test_tool_schema_consistency.py", "tests/test_research_workflow.py"]
+    },
+    {
+      "id": "B06-agent-executor",
+      "source": "validated tool call",
+      "destination": "sandboxed R/Python/Stata process",
+      "data": ["researcher/model-authored code", "approved dataset paths", "method and workflow identifiers"],
+      "controls": ["exact approval binding", "filesystem isolation", "network denial", "environment allowlist", "CPU/memory/process/output limits", "process-group termination"],
+      "tests": ["tests/test_executor_sandbox.py", "tests/test_bwrap_sandbox.py", "tests/test_executor_env_allowlist.py", "tests/test_install_process_group.py", "tests/test_research_workflow.py"]
+    },
+    {
+      "id": "B07-executor-sanitizer",
+      "source": "untrusted analysis process",
+      "destination": "sanitized result payload",
+      "data": ["structured statistical output", "logs", "plots"],
+      "controls": ["authenticated result framing", "shape allowlists", "finite numeric validation", "statistical disclosure control", "plot manifest validation", "raw log exclusion"],
+      "tests": ["tests/test_sanitizer.py", "tests/test_python_runtime_sanitizer.py", "tests/test_plot_manifest_token_validation.py", "tests/test_verification_all_shapes.py"]
+    },
+    {
+      "id": "B08-sanitizer-provider",
+      "source": "sanitized result and verifier",
+      "destination": "model context",
+      "data": ["aggregate statistics", "identifiers", "warnings"],
+      "controls": ["release policy", "privacy budgets", "suppression/minimum N", "banned variables", "tamper-evident release ledger"],
+      "tests": ["tests/test_privacy_budget.py", "tests/test_privacy_profiles.py", "tests/test_source_dataset_ledger.py", "tests/test_release_ledger.py"]
+    },
+    {
+      "id": "B09-local-persistence",
+      "source": "Sift runtime",
+      "destination": "private .sift session state",
+      "data": ["chat history", "sanitized results", "workflow state", "notes", "audit records", "run artifacts"],
+      "controls": ["0700 directories and 0600 files", "atomic writes and locks", "SQLite secure_delete", "session-scoped stores", "explicit retention preview and confirmation"],
+      "tests": ["tests/test_store.py", "tests/test_qualification.py", "tests/test_concurrent_sessions.py", "tests/test_security_assurance.py"]
+    },
+    {
+      "id": "B10-session-focus",
+      "source": "one live session runner",
+      "destination": "another live session runner and UI",
+      "data": ["turns", "attachments", "provider context", "results"],
+      "controls": ["runner keyed by resolved session path", "target-bound queued sends", "attachment snapshot tokens", "per-session stores and state locks"],
+      "tests": ["tests/test_concurrent_sessions.py", "tests/test_cross_session_recall.py", "tests/test_consent_and_session_registry_regressions.py"]
+    },
+    {
+      "id": "B11-export",
+      "source": "sanitized local stores and researcher action",
+      "destination": "export directory",
+      "data": ["results", "methods", "provenance", "scripts", "disclosure ledger"],
+      "controls": ["researcher-only UI surface", "enterprise export approval", "no raw dataset inclusion", "manifest hashes", "optional Ed25519 signature"],
+      "tests": ["tests/test_research_export.py", "tests/test_enterprise_policy.py", "tests/test_security_assurance.py"]
+    },
+    {
+      "id": "B12-encrypted-session",
+      "source": "session directory",
+      "destination": "portable encrypted bundle and restore target",
+      "data": ["complete session files"],
+      "controls": ["scrypt KDF", "chunked AES-256-GCM", "unique nonces", "authenticated header", "no symlinks/devices", "safe restore paths", "empty-destination requirement"],
+      "tests": ["tests/test_security_assurance.py"]
+    },
+    {
+      "id": "B13-enterprise-policy",
+      "source": "organization_admin",
+      "destination": "all provider, integration, disclosure, and export gates",
+      "data": ["security policy"],
+      "controls": ["fixed OS paths or ownership validation", "safe YAML loader", "strict field schema", "unknown/malformed policy fails closed", "policy only tightens session controls"],
+      "tests": ["tests/test_enterprise_policy.py"]
+    },
+    {
+      "id": "B14-software-supply-chain",
+      "source": "package registry and build inputs",
+      "destination": "installed Sift application",
+      "data": ["dependencies", "packages", "binaries"],
+      "controls": ["exact lockfile with hashes", "CycloneDX SBOM", "dependency vulnerability scan", "secret scan", "static security analysis", "release gate for high/critical findings"],
+      "tests": ["tests/test_security_assurance.py", "tests/test_vendor_python_packaging.py"]
+    }
+  ],
+  "threats": [
+    {"id": "T01", "category": "information_disclosure", "scenario": "Raw records or identifiers reach a remote model.", "boundaries": ["B02-parser-profile", "B04-user-provider", "B08-sanitizer-provider"], "mitigation": "schema-only defaults, explicit attachment staging, disclosure review, sanitizer and release policy", "residual_risk": "A researcher can intentionally paste confidential content; pattern detection is advisory."},
+    {"id": "T02", "category": "prompt_injection", "scenario": "Instructions embedded in names, labels, database metadata, documents, images, or model output attempt to change policy.", "boundaries": ["B01-file-ingress", "B02-parser-profile", "B03-database-cloud-ingress", "B05-provider-agent"], "mitigation": "text normalization plus deterministic tool/policy/approval boundaries", "residual_risk": "Semantic injection can influence prose; it cannot authorize disallowed execution or disclosure."},
+    {"id": "T03", "category": "tampering", "scenario": "A malicious file uses traversal, symlinks, malformed containers, or output collisions.", "boundaries": ["B01-file-ingress", "B07-executor-sanitizer", "B12-encrypted-session"], "mitigation": "resolved-path containment, no-follow writes, type/signature checks, safe extraction"},
+    {"id": "T04", "category": "denial_of_service", "scenario": "A parser bomb or analysis process exhausts time, RAM, process count, disk, or output.", "boundaries": ["B01-file-ingress", "B02-parser-profile", "B06-agent-executor"], "mitigation": "bounded parsing/materialization and parent-enforced execution limits"},
+    {"id": "T05", "category": "credential_theft", "scenario": "Code, driver errors, transport errors, or prompts expose API/database credentials.", "boundaries": ["B03-database-cloud-ingress", "B04-user-provider", "B06-agent-executor"], "mitigation": "OS credential storage, execution environment allowlist, transport header injection, layered redaction"},
+    {"id": "T06", "category": "privilege_escalation", "scenario": "Model-generated code reads outside the project, reaches the network, or spawns surviving children.", "boundaries": ["B06-agent-executor"], "mitigation": "OS-specific fail-closed sandbox and whole-process-tree termination", "residual_risk": "Platform sandbox correctness requires ongoing OS-specific qualification."},
+    {"id": "T07", "category": "cross_session_disclosure", "scenario": "Queued turns, attachments, results, or provider history are routed to the wrong project.", "boundaries": ["B09-local-persistence", "B10-session-focus"], "mitigation": "resolved-path runner identity, session-bound queues, stores, locks, and event filtering"},
+    {"id": "T08", "category": "repudiation", "scenario": "A released claim cannot be tied to code, data, method, or approval state.", "boundaries": ["B08-sanitizer-provider", "B09-local-persistence", "B11-export"], "mitigation": "hash-chained audit, immutable correction links, exact provenance, optional export signature"},
+    {"id": "T09", "category": "policy_bypass", "scenario": "Researcher-writable or malformed enterprise policy silently disables a restriction.", "boundaries": ["B13-enterprise-policy"], "mitigation": "trusted location/ownership check and strict fail-closed parsing"},
+    {"id": "T10", "category": "supply_chain", "scenario": "A vulnerable or substituted dependency compromises confidential processing.", "boundaries": ["B14-software-supply-chain"], "mitigation": "lock hashes, SBOM, automated scans, signed build/provenance plan", "residual_risk": "A clean vulnerability database scan cannot prove absence of unknown vulnerabilities."},
+    {"id": "T11", "category": "data_remanence", "scenario": "Deleted scripts, runs, or sessions remain recoverable on storage or backups.", "boundaries": ["B09-local-persistence", "B12-encrypted-session"], "mitigation": "SQLite secure_delete, best-effort overwrite, encrypted bundles, retention controls", "residual_risk": "Strong deletion depends on storage encryption, snapshot policy, backup lifecycle, and media sanitization."},
+    {"id": "T12", "category": "signature_key_compromise", "scenario": "A provenance signing key is copied or misused.", "boundaries": ["B11-export"], "mitigation": "private key stored in OS credential service and never placed in export", "residual_risk": "Software-backed keys do not equal hardware-backed organizational signing; key rotation and revocation are deployment responsibilities."}
+  ],
+  "review_triggers": [
+    "new provider or integration boundary",
+    "new parser or executable runtime",
+    "new model-callable tool",
+    "change to sanitizer, release policy, enterprise policy, or sandbox",
+    "critical/high dependency advisory",
+    "security incident or penetration-test finding",
+    "at least once per release"
+  ]
+}

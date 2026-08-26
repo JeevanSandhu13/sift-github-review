@@ -1,0 +1,77 @@
+{
+  "format": "sift-beta-study-protocol",
+  "schema_version": 1,
+  "protocol_version": "2026.1",
+  "status": "ready_for_ethics_and_pilot_review",
+  "purpose": "Evaluate usability, methodological trust calibration, privacy comprehension, and operational reliability without collecting research data or free-text participant content.",
+  "participant_strata": [
+    {
+      "id": "researcher",
+      "minimum_participants": 15,
+      "coverage": ["quantitative", "clinical", "survey", "longitudinal", "geospatial", "database"]
+    },
+    {
+      "id": "administrator",
+      "minimum_participants": 5,
+      "coverage": ["security", "privacy", "deployment", "policy", "offline_update"]
+    }
+  ],
+  "required_preconditions": [
+    "Approved study protocol and consent language",
+    "Explicit participant consent before event recording",
+    "Synthetic or institution-approved test data only",
+    "Local event storage with no automatic transmission",
+    "Incident contact and stop-study procedure",
+    "Accessibility accommodations selected by the participant"
+  ],
+  "tasks": [
+    "public_reproducible_analysis",
+    "confidential_local_analysis",
+    "clinical_method_review",
+    "survey_weighted_analysis",
+    "longitudinal_analysis",
+    "geospatial_analysis",
+    "database_private_extract",
+    "institutional_policy_review",
+    "offline_update_verification"
+  ],
+  "measures": [
+    "completion",
+    "abandonment",
+    "time_on_task",
+    "structured_error_category",
+    "methodological_correction",
+    "seven_point_trust_calibration rating",
+    "accessibility mode",
+    "privacy incident"
+  ],
+  "prohibited_collection": [
+    "research data",
+    "file names or paths",
+    "query text",
+    "model prompts or responses",
+    "participant names or contact details",
+    "free-text notes",
+    "credentials or tokens"
+  ],
+  "release_thresholds": {
+    "overall_completion_rate_minimum": 0.9,
+    "privacy_incidents_maximum": 0,
+    "critical_unresolved_issues_maximum": 0,
+    "each_task_attempts_minimum": 5,
+    "accessibility_blockers_maximum": 0
+  },
+  "issue_severity": {
+    "critical": "Data disclosure, integrity loss, unsafe method recommendation, or inaccessible core workflow with no workaround.",
+    "high": "Incorrect result, blocked core task, misleading privacy state, or repeated abandonment.",
+    "medium": "Material delay, confusing recovery, or workaround-dependent task completion.",
+    "low": "Minor friction that does not change task correctness or completion."
+  },
+  "completion_requirements": [
+    "Ethics and privacy review completed where applicable",
+    "Participant strata and task coverage achieved",
+    "Aggregate report independently reviewed",
+    "All critical and high findings resolved and retested",
+    "Signed study completion decision recorded by the product owner"
+  ]
+}

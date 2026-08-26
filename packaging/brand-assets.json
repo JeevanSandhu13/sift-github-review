@@ -1,0 +1,89 @@
+{
+  "assets": {
+    "packaging/Sift.icns": {
+      "sha256": "24acd80805ffba925002aaa2f7bfd49ece597bc7b28e07a22912c2707f486b42",
+      "size": 107941
+    },
+    "packaging/linux/icons/hicolor/128x128/apps/org.sapieninstitute.sift.png": {
+      "sha256": "7e8c732981f8b6bc348d2474ec15b3e4691e19133c8dbd1cd2006a68ab8f3530",
+      "size": 6185
+    },
+    "packaging/linux/icons/hicolor/16x16/apps/org.sapieninstitute.sift.png": {
+      "sha256": "d7cf65b07a90aa5b9a5b92ad8193632f445b4d42fdeee02abac872a9c86d755b",
+      "size": 647
+    },
+    "packaging/linux/icons/hicolor/24x24/apps/org.sapieninstitute.sift.png": {
+      "sha256": "873efdfa41d91e0a5a01e54415a841b1e9561660e23c35e76214804870c918f1",
+      "size": 934
+    },
+    "packaging/linux/icons/hicolor/256x256/apps/org.sapieninstitute.sift.png": {
+      "sha256": "c6c2bc372a0c77f12ec00869607aa22adb822f45ffb9c98bd6c6afd429c1995c",
+      "size": 12846
+    },
+    "packaging/linux/icons/hicolor/32x32/apps/org.sapieninstitute.sift.png": {
+      "sha256": "ae4d4d2881eba165dd7d73516ad2b8ede1ef17414467e7aa182fa27902b3aba6",
+      "size": 1382
+    },
+    "packaging/linux/icons/hicolor/48x48/apps/org.sapieninstitute.sift.png": {
+      "sha256": "5f56b28da1ebc02d5a5572f42fc311454d7b2e1f9baa641f04ccf44e6e521a91",
+      "size": 2115
+    },
+    "packaging/linux/icons/hicolor/512x512/apps/org.sapieninstitute.sift.png": {
+      "sha256": "37a06d2eb9ed154d18ed17e72220389b469e2c608ba52057dc51efb4078be83b",
+      "size": 25384
+    },
+    "packaging/linux/icons/hicolor/64x64/apps/org.sapieninstitute.sift.png": {
+      "sha256": "49d6d638c40392e87e20a5f62310636b2b88f1530b06babb3c5717fb579b15f6",
+      "size": 2928
+    },
+    "packaging/macos/installer-background.png": {
+      "sha256": "0da0e85c06a18465fc2a2418f0fb121092031dac38070f71ea9e5ce64844b555",
+      "size": 6292
+    },
+    "packaging/windows/Sift.ico": {
+      "sha256": "b0e471c2404db378c0bc7be0a686b94adbede1044426a15eb15534b1b784191b",
+      "size": 28766
+    },
+    "packaging/windows/installer-small.bmp": {
+      "sha256": "057238c277d27b34be30666575ce4d6e83d0660a799bbe41adbf330c353c8eff",
+      "size": 9294
+    },
+    "packaging/windows/installer-wizard.bmp": {
+      "sha256": "882c28f7b8211c712be78e21b57aeba9a279221dcf1798fef000580e062f4812",
+      "size": 154542
+    },
+    "packaging/windows/msix/Assets/Square150x150Logo.png": {
+      "sha256": "d46daaeadac5a067963b8f8c94400811de575214d87ef596ebbbf50e02394ca3",
+      "size": 7110
+    },
+    "packaging/windows/msix/Assets/Square44x44Logo.png": {
+      "sha256": "eaa8621c07ced4f7b048b080854baead99ee28b85986b0ad627606810dda8ba6",
+      "size": 1914
+    },
+    "packaging/windows/msix/Assets/StoreLogo.png": {
+      "sha256": "430150827940d4c5354ad2c88f9755517c56fdab8b70e545a9f5526658de601d",
+      "size": 2206
+    },
+    "src/sift/web/app-icon.png": {
+      "sha256": "49d6d638c40392e87e20a5f62310636b2b88f1530b06babb3c5717fb579b15f6",
+      "size": 2928
+    }
+  },
+  "canonical_source": "packaging/icon-source.png",
+  "canonical_source_sha256": "5baf5afdb7e977c556c9f6c3cc479f31f2b25713f2b44201f1eeac3a73959896",
+  "format": "sift-brand-assets",
+  "schema_version": 1,
+  "ui_tokens": {
+    "shell-accent": "#276f50",
+    "shell-bg": "#f4f5f2",
+    "shell-border": "#cfd5ce",
+    "shell-code-bg": "#202723",
+    "shell-code-text": "#e7eee9",
+    "shell-dark-accent": "#79be96",
+    "shell-dark-border": "#3b473f",
+    "shell-dark-text-secondary": "#aeb9b2",
+    "shell-panel-raised": "#ffffff",
+    "shell-text": "#19211d",
+    "shell-text-secondary": "#536059"
+  }
+}

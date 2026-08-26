@@ -1,0 +1,1 @@
+{"format":"sift-release-trust-store","keys":[{"algorithm":"Ed25519","channels":["stable","beta"],"key_id":"sift-release-2026-01","public_key":"hL2uk92hCNKkzI3XmLa0/DuqTdZqC8y7tgd8MObcSxo=","revoked_at":null,"valid_from":"2026-08-26T00:00:00Z","valid_until":"2031-08-26T00:00:00Z"}],"schema_version":1}

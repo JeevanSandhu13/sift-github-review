@@ -1,0 +1,170 @@
+name: Desktop platform qualification
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "src/**"
+      - "packaging/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/platform-qualification.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "packaging/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/platform-qualification.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-platform-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS 15 arm64
+            os: macos-15
+            platform: macos
+          - name: Windows Server 2025 x64 compatibility
+            os: windows-2025
+            platform: windows
+          - name: Ubuntu 22.04 x86_64
+            os: ubuntu-22.04
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          python-version: "3.12.11"
+
+      - name: Install Linux confinement and display libraries
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes appstream bubblewrap build-essential dbus-x11 desktop-file-utils gnome-keyring libasound2 libdbus-1-3 libegl1 libevent-2.1-7 libfontconfig1 libgl1 libminizip1 libopus0 libpulse0 libsnappy1v5 libtbb12 libwebp7 libwebpdemux2 libwebpmux3 libx11-xcb1 libxcomposite1 libxcursor1 libxi6 libxkbcommon-x11-0 libxrandr2 libxshmfence1 libxss1 libxtst6 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 unixodbc xvfb
+
+      - name: Install Linux scientific reference environment
+        if: matrix.platform == 'linux'
+        run: sudo bash packaging/install_linux_qualification_r.sh
+
+      - name: Install Windows installer compiler
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Install the locked complete release environment
+        run: uv sync --locked --all-extras
+
+      - name: Verify connector drivers
+        run: uv run python packaging/verify_database_drivers.py
+
+      - name: Run the complete automated suite
+        run: uv run pytest -q
+
+      - name: Qualify source desktop runtime
+        run: uv run python -m sift --platform-check
+
+      - name: Build and import-check bundled analysis runtime
+        run: uv run python packaging/vendor_python.py
+
+      - name: Build native macOS application and disk image
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          SIFT_SKIP_VENDOR=1 SIFT_SKIP_TESTS=1 bash packaging/build_app.sh
+          bash packaging/build_dmg.sh
+          bash packaging/qualify_macos_install.sh dist/Sift.app
+
+      - name: Build native Windows installer and portable archive
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $env:SIFT_SKIP_TESTS = "1"
+          .\packaging\build_windows.ps1 -SkipVendor -SkipSign
+
+      - name: Build native Linux desktop bundle
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: SIFT_SKIP_VENDOR=1 SIFT_SKIP_TESTS=1 bash packaging/build_linux.sh
+
+      - name: Qualify frozen macOS executable
+        if: matrix.platform == 'macos'
+        run: |
+          dist/sift/sift --platform-check
+          dist/sift/sift --analysis-check
+
+      - name: Qualify frozen Linux executable
+        if: matrix.platform == 'linux'
+        run: |
+          dist/sift/sift --platform-check
+          xvfb-run -a dist/sift/sift --renderer-check
+          dist/sift/sift --analysis-check
+          packaging/linux/qualify_credential_store.sh dist/sift/sift
+          uv run python packaging/verify_linux_elf_dependencies.py dist/sift
+
+      - name: Qualify frozen Windows executable
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          & .\dist\Sift\Sift.exe --platform-check
+          if ($LASTEXITCODE -ne 0) { throw "Frozen Windows qualification failed." }
+          & .\dist\Sift\Sift.exe --renderer-check
+          if ($LASTEXITCODE -ne 0) { throw "Frozen Windows WebView2 renderer qualification failed." }
+          & .\dist\Sift\Sift.exe --analysis-check
+          if ($LASTEXITCODE -ne 0) { throw "Frozen Windows analysis runtime qualification failed." }
+          & .\dist\Sift\Sift.exe --credential-store-check
+          if ($LASTEXITCODE -ne 0) { throw "Frozen Windows Credential Manager qualification failed." }
+
+      - name: Retain qualified native installer
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sift-${{ matrix.platform }}-${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            dist/Sift.dmg*
+            dist/Sift-Windows-x64-Setup.exe*
+            dist/Sift-Windows-x64.zip*
+            dist/Sift-Linux-*.tar.gz*
+
+  qualify-linux-newer:
+    name: Ubuntu 24.04 installed-artifact compatibility
+    needs: qualify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out qualification scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Linux confinement, credential-vault, and display libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes appstream bubblewrap dbus-x11 desktop-file-utils gnome-keyring libdbus-1-3 libegl1 libfontconfig1 libgl1 libpulse0 libtbb12 libx11-xcb1 libxcomposite1 libxcursor1 libxi6 libxkbcommon-x11-0 libxrandr2 libxshmfence1 libxss1 libxtst6 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 unixodbc xvfb
+
+      - name: Download the Ubuntu 22.04-built Linux artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sift-linux-${{ github.run_id }}
+          path: dist
+
+      - name: Qualify install, renderer, vault, analysis, upgrade, and removal
+        shell: bash
+        run: bash packaging/qualify_linux_install.sh dist/Sift-Linux-x86_64.tar.gz

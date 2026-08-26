@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Sift
+GenericName=Research Assistant
+Comment=Analyze sensitive research data with controlled disclosure
+Exec="__SIFT_EXECUTABLE__"
+Icon=org.sapieninstitute.sift
+Terminal=false
+StartupNotify=true
+Categories=Science;DataVisualization;
+Keywords=research;data;analysis;statistics;privacy;

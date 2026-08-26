@@ -1,0 +1,79 @@
+name: Windows 11 x64 native qualification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-11-native-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    # Register a clean Windows 11 x64 desktop runner with the additional
+    # `sift-windows-11` label.  Hosted x64 Windows runners are Windows Server,
+    # so they are useful compatibility checks but cannot certify this target.
+    runs-on: [self-hosted, Windows, X64, sift-windows-11]
+    timeout-minutes: 180
+    steps:
+      - name: Verify the native target
+        shell: pwsh
+        run: |
+          $os = Get-CimInstance Win32_OperatingSystem
+          if ($os.Caption -notlike '*Windows 11*' -or
+              $os.ProductType -ne 1 -or
+              $os.OSArchitecture -notlike '64-bit*') {
+            throw "This qualification requires a Windows 11 x64 client host."
+          }
+
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          python-version: "3.12.11"
+
+      - name: Install the Windows installer compiler
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build and execute the complete Windows release qualification
+        shell: pwsh
+        run: .\packaging\build_windows.ps1 -SkipSign
+
+      - name: Record native evidence
+        shell: pwsh
+        run: |
+          $os = Get-CimInstance Win32_OperatingSystem
+          $artifacts = Get-ChildItem dist\Sift-Windows-x64* -File | ForEach-Object {
+            [ordered]@{
+              name = $_.Name
+              bytes = $_.Length
+              sha256 = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant()
+            }
+          }
+          [ordered]@{
+            schema_version = 1
+            status = 'pass'
+            os_caption = $os.Caption
+            os_version = $os.Version
+            os_build = $os.BuildNumber
+            os_architecture = $os.OSArchitecture
+            powershell = $PSVersionTable.PSVersion.ToString()
+            artifacts = @($artifacts)
+          } | ConvertTo-Json -Depth 5 | Set-Content dist\windows-11-qualification.json -Encoding utf8
+
+      - name: Retain the qualified Windows 11 artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sift-windows-11-x64-${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            dist/Sift-Windows-x64-Setup.exe*
+            dist/Sift-Windows-x64.zip*
+            dist/windows-11-qualification.json

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.sapieninstitute.sift</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Apache-2.0</project_license>
+  <name>Sift</name>
+  <summary>Private research assistance for sensitive data</summary>
+  <developer id="org.sapieninstitute">
+    <name>Sapien Institute</name>
+  </developer>
+  <url type="homepage">https://github.com/JeevanSandhu13/Sift</url>
+  <description>
+    <p>
+      Sift is a local research assistant that helps researchers inspect,
+      analyze, verify, and report on sensitive data while controlling what
+      information can be disclosed to a researcher-selected model provider.
+    </p>
+  </description>
+  <launchable type="desktop-id">org.sapieninstitute.sift.desktop</launchable>
+  <provides>
+    <binary>sift</binary>
+  </provides>
+  <categories>
+    <category>Science</category>
+    <category>DataVisualization</category>
+  </categories>
+  <content_rating type="oars-1.1" />
+</component>

@@ -1,0 +1,63 @@
+SIFT FOR WINDOWS
+================
+
+Recommended installation
+------------------------
+1. Run Sift-Windows-x64-Setup.exe.
+2. Complete the per-user installer. Administrator access is not required.
+3. Open Sift from Start > Sift > Sift.
+
+Sift requires 64-bit Windows 11 (build 22000 or newer) and the Microsoft Edge
+WebView2 Evergreen Runtime version 86.0.616.0 or newer. Windows 11 normally
+includes a current WebView2 Runtime. If it is missing or too old, the installer
+stops before changing the computer and explains where to obtain the official
+Microsoft runtime.
+
+Portable archive
+----------------
+Extract the complete Sift-Windows-x64.zip archive to a writable local folder,
+then run Sift.exe. Do not copy Sift.exe out of its folder: the adjacent
+_internal directory and analysis runtime are required.
+
+Data, settings, and privacy
+---------------------------
+- Sift includes no model account. Add your own provider API key or local model
+  endpoint from Manage providers.
+- API keys, database credentials, and remote-source credentials are stored in
+  Windows Credential Manager, never in a Sift plaintext settings file.
+- Imported sessions are stored under %USERPROFILE%\.sift-sessions. A folder
+  opened in place keeps its private Sift state in that folder's .sift directory.
+- Bounded, redacted diagnostics are stored under %LOCALAPPDATA%\Sift\Logs.
+- Sift does not check for updates at startup. Update access occurs only when
+  you explicitly request it.
+
+Institutional settings
+----------------------
+Administrators may place an optional protected policy at:
+
+  %ProgramData%\Sift\enterprise_policy.yaml
+
+It can restrict providers, data connectors, destinations, disclosure,
+diagnostics, exports, and resource limits. An invalid configured policy fails
+closed. Ordinary users do not need this file.
+
+Uninstall
+---------
+Use Windows Settings > Apps > Installed apps > Sift > Uninstall.
+
+Uninstall removes the application and its shortcuts. Research sessions,
+project .sift directories, diagnostics, and credentials are deliberately
+retained. To remove provider keys, use Manage providers > Forget before
+uninstalling, or remove the Sift entries from Windows Credential Manager.
+
+Support check
+-------------
+From PowerShell, run:
+
+  & "$env:LOCALAPPDATA\Programs\Sift\Sift.exe" --platform-check
+  & "$env:LOCALAPPDATA\Programs\Sift\Sift.exe" --credential-store-check
+
+The first command verifies the renderer, credential-store integration,
+bundled assets, 64-bit runtime, and AppContainer confinement. The second
+writes, reads, and deletes a random non-user canary in Windows Credential
+Manager. It never reads or changes a provider or database credential.

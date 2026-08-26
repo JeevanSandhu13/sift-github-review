@@ -1,0 +1,345 @@
+[project]
+name = "sift"
+version = "0.1.0"
+description = "Sift — a local research assistant for sensitive data, using researcher-supplied model APIs or endpoints."
+authors = [
+    {name = "Jeevan Sandhu", email = "jeevan@sapieninstitute.org"},
+]
+# Apache License 2.0 — see LICENSE.
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: MacOS X",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Security",
+]
+dependencies = [
+    # ``security_assurance`` parses the locked dependency inventory at runtime.
+    # tomllib is stdlib only on 3.11+, while Sift supports Python 3.10.
+    "tomli>=2.0; python_version < '3.11'",
+    "claude-agent-sdk>=0.1.61",
+    # Schema extractors for supported research-data formats.
+    # pyreadstat: .dta (Stata) with variable labels, value labels, types.
+    # pyreadr: .rds / .rda / .RData (R), pure-Python port, no R needed.
+    # pandas: type inference for .csv and the DataFrame lingua franca that
+    # pyreadstat/pyreadr return. Heavy dep, but pyreadstat requires it anyway.
+    "pyreadstat>=1.2",
+    "pyreadr>=0.5",
+    "pandas>=2.0",
+    # Current estimator integrations (notably pyfixest's factor interaction
+    # encoder) use NumPy 2's reshape keyword API on supported Python >=3.11.
+    # Keep Python 3.10 on its compatible transitive NumPy line, but prevent an
+    # all-version lock from downgrading modern runtimes to 1.26.
+    # rdrobust's current compiled path runs through Numba, whose supported
+    # NumPy surface still includes ``trapz`` and ``row_stack``. NumPy 2.4/2.5
+    # removed those aliases and breaks real RDD fits at JIT time, so keep the
+    # verified 2.0-2.3 line until the upstream stack supports the replacements.
+    "numpy>=2.0,<2.4; python_version >= '3.11'",
+    # Parquet support. ``pandas.read_parquet`` dispatches to pyarrow
+    # by default; declaring it explicitly removes the "no engine" error
+    # researchers would otherwise get the first time they upload a
+    # ``.parquet`` file. Also enables ``.feather`` if we add it later.
+    "pyarrow>=15",
+    # UI shell (`sift` entry point). pywebview wraps a native WKWebView
+    # window on macOS, so no Chromium is bundled. ~25 MB added to the
+    # .app rather than ~120 MB for Electron.
+    "pywebview>=5.0; sys_platform != 'linux'",
+    # Bundle the Qt backend on Linux. Plain pywebview does not install a
+    # renderer there, leaving a frozen app that builds successfully but
+    # cannot open a window on a clean workstation.
+    "pywebview[qt]>=5.0; sys_platform == 'linux'",
+    # Keep the four Riverbank distributions on one reviewed Qt line.  The
+    # current wheels use the supported libwebp ABI; the older ARM64-compatible
+    # line linked to libwebp.so.6, which Ubuntu 22.04 does not provide.  Current
+    # x86_64 wheels retain a glibc 2.34 tag, while ARM64 correctly targets the
+    # Ubuntu 24.04 / glibc 2.39 baseline.
+    "pyqt6==6.11.0; sys_platform == 'linux'",
+    "pyqt6-qt6==6.11.2; sys_platform == 'linux'",
+    "pyqt6-webengine==6.11.0; sys_platform == 'linux'",
+    "pyqt6-webengine-qt6==6.11.2; sys_platform == 'linux'",
+    # Multi-provider auth: ``keyring`` brokers credentials through the
+    # OS-native secret store (macOS Keychain). API keys never touch
+    # disk in cleartext: Sift reads via ``auth.get_credential`` and
+    # writes via ``auth.set_credential``. The Claude CLI subscription
+    # path bypasses keyring (uses its own ``~/.claude.json`` token);
+    # only API-key creds (Anthropic, OpenAI) flow through keyring.
+    "keyring>=24",
+    # OpenAI provider. Used only when the researcher picks an OpenAI
+    # model in the picker; ``provider/openai.py`` lazy-imports it so
+    # an Anthropic-only install doesn't pay the dep cost at startup.
+    "openai>=1.50",
+    # Excel (.xlsx) ingestion. pandas.read_excel dispatches to openpyxl
+    # for .xlsx; without the explicit dependency researchers get an
+    # ImportError the first time they drop the world's most common
+    # data format. read-only mode also gives the cheap row-count path.
+    "openpyxl>=3.1",
+    # Legacy Excel and OpenDocument spreadsheets.  These are separate
+    # pandas engines; declaring them avoids a format appearing supported but
+    # failing on a clean macOS/Windows/Linux install.
+    "xlrd>=2.0.1",
+    "odfpy>=1.4.1",
+    # Database connectivity. SQLAlchemy gives one URI-shaped surface
+    # over SQLite, PostgreSQL, MySQL, SQL Server, Oracle and friends;
+    # the DBAPI driver for a given backend stays optional so an
+    # install that never touches Postgres does not carry psycopg2.
+    # DuckDB covers the file-and-warehouse side (Parquet, S3-style
+    # paths, out-of-core SQL) without a server.
+    "sqlalchemy>=2.0",
+    "duckdb>=1.0",
+    # Parse approved queries with the selected backend grammar in addition to
+    # the fail-closed lexical gate.  This is defense in depth: SQLGlot catches
+    # nested/obscure statement forms, while the lexical scanner remains the
+    # authority for comments, vendor quoting, and dangerous function names.
+    "sqlglot>=27.0",
+    # Report export. Both are pure-Python -- no system
+    # libraries (no Cairo/Pango/LibreOffice) -- so they build cleanly
+    # into the PyInstaller bundle across platforms. reportlab renders
+    # the analysis report as a paginated PDF from the same stored
+    # sanitized material as the HTML/Markdown export; python-pptx
+    # renders the same material as a one-finding-per-slide deck.
+    # Neither ever sees raw data -- both consume the same
+    # already-sanitized ``build_analysis_report``-style entries as
+    # the existing exporters.
+    "reportlab>=4.0",
+    "python-pptx>=1.0",
+    # Enterprise policy config: a single, small, admin-
+    # authored YAML file living outside the researcher-writable
+    # .sift/ directory. PyYAML's ``safe_load`` (never ``load``, never
+    # any custom tag) is the only parsing path this project uses for
+    # it -- see enterprise_policy.py.
+    "pyyaml>=6.0",
+    # Cross-platform process-tree memory accounting. POSIX RLIMIT_AS is
+    # not reliably enforced on macOS, so the executor also watches the
+    # sandboxed process tree from the parent and kills it at the configured
+    # ceiling. Declared directly rather than relying on a transitive copy.
+    "psutil>=5.9",
+    # Researcher-controlled encrypted session bundles and signed provenance
+    # manifests. Sift uses only established primitives from this package:
+    # scrypt + AES-256-GCM for chunk-authenticated bundles and Ed25519 for
+    # signatures. It never implements or configures a custom cipher.
+    "cryptography>=44.0",
+    # Gemini provider. Used only when the researcher picks
+    # a Gemini model in the picker; ``provider/gemini.py`` lazy-
+    # imports it exactly like ``provider/openai.py`` does for
+    # ``openai`` above, so an Anthropic/OpenAI-only install pays no
+    # startup cost for it. google-genai is Google's current
+    # (non-deprecated) unified SDK for both the Gemini Developer API
+    # and Vertex AI; pinned >=2.0 for the ``AutomaticFunctionCallingConfig``
+    # / async ``chats.create`` surface the provider depends on.
+    "google-genai>=2.0",
+]
+
+[project.optional-dependencies]
+# Database drivers are optional so a local-only installation does not carry
+# enterprise/cloud SDKs it will never use.  Each extra is the supported,
+# cross-platform path for that backend; ``databases`` installs the complete
+# connector set for a research workstation or managed image.
+postgres = ["psycopg[binary]>=3.3,<4"]
+mysql = ["pymysql>=1.2,<2"]
+sqlserver = ["pyodbc>=5.3,<6"]
+oracle = ["oracledb>=4.0,<5"]
+snowflake = [
+    "snowflake-sqlalchemy>=1.11,<2",
+    "snowflake-connector-python>=4.7,<5",
+]
+bigquery = ["sqlalchemy-bigquery>=1.17,<2"]
+redshift = ["sqlalchemy-redshift>=1.0,<2", "redshift-connector>=2.1.16,<3"]
+databricks = [
+    "databricks-sqlalchemy>=2.0.10,<3",
+    "databricks-sql-connector>=4.4,<5",
+    "databricks-sdk>=0.133,<1",
+]
+s3 = ["boto3>=1.35"]
+gcs = ["google-cloud-storage>=2.18"]
+azure = ["azure-storage-blob>=12.23", "azure-identity>=1.19"]
+sftp = ["paramiko>=3.5"]
+cloud-sources = [
+    "boto3>=1.35",
+    "google-cloud-storage>=2.18",
+    "azure-storage-blob>=12.23",
+    "azure-identity>=1.19",
+    "paramiko>=3.5",
+]
+# Complex data formats are isolated and optional by domain. The registry is
+# always available, while readiness reports a parser as unavailable until its
+# wheel set is installed. This keeps a basic confidential-data workstation
+# small without pretending that a missing scientific parser is usable.
+data-formats-general = ["fastavro>=1.9", "defusedxml>=0.7", "dbfread>=2.0"]
+data-formats-scientific = [
+    "h5py>=3.12", "xarray>=2024.10", "netCDF4>=1.7", "scipy>=1.11",
+    "astropy>=6.1",
+]
+data-formats-geospatial = ["geopandas>=1.0", "pyogrio>=0.10", "shapely>=2.0", "rasterio>=1.4"]
+data-formats-domain = [
+    "pysam>=0.23; sys_platform != 'win32'",
+    "nibabel>=5.3",
+    "pydicom>=3.0",
+]
+data-formats = [
+    "fastavro>=1.9", "defusedxml>=0.7", "dbfread>=2.0",
+    "h5py>=3.12", "xarray>=2024.10", "netCDF4>=1.7", "scipy>=1.11", "astropy>=6.1",
+    "geopandas>=1.0", "pyogrio>=0.10", "shapely>=2.0", "rasterio>=1.4",
+    "pysam>=0.23; sys_platform != 'win32'", "nibabel>=5.3", "pydicom>=3.0",
+]
+# Managed model deployments remain an opt-in dependency set so a local-only
+# research workstation does not carry three cloud identity stacks.  The
+# provider registry and privacy manifests are always present; readiness names
+# this extra when a selected adapter's SDK is absent.
+enterprise-models = [
+    "azure-identity>=1.19",
+    "boto3>=1.35",
+    "anthropic[vertex]>=0.69",
+]
+databases = [
+    "psycopg[binary]>=3.3,<4",
+    "pymysql>=1.2,<2",
+    "pyodbc>=5.3,<6",
+    "oracledb>=4.0,<5",
+    "snowflake-sqlalchemy>=1.11,<2",
+    "snowflake-connector-python>=4.7,<5",
+    "sqlalchemy-bigquery>=1.17,<2",
+    "sqlalchemy-redshift>=1.0,<2",
+    "redshift-connector>=2.1.16,<3",
+    "databricks-sqlalchemy>=2.0.10,<3",
+    "databricks-sql-connector>=4.4,<5",
+    "databricks-sdk>=0.133,<1",
+]
+
+[project.scripts]
+sift = "sift.ui:main"
+
+[dependency-groups]
+dev = [
+    # Property-based testing is the backbone of the sanitizer's correctness
+    # proof: generate adversarial payloads, assert post-sanitize invariants.
+    "pytest>=8",
+    "hypothesis>=6",
+    # Release qualification must be reproducible on a clean workstation;
+    # never silently borrow the type checker from a system Python install.
+    "mypy>=1.15",
+    # Real Bayesian qualification nodes exercise the public PyMC/ArviZ
+    # adapters; declaring them prevents a clean verifier from silently
+    # skipping two methods that happened to work on the development machine.
+    "pymc>=5.20",
+    "arviz>=0.20",
+    # Release security qualification. pip-audit checks the resolved Python
+    # environment against public vulnerability databases; Bandit provides an
+    # independent static pass beyond Sift's small high-signal AST gate.
+    "pip-audit>=2.10",
+    "bandit[toml]>=1.8",
+    # The scientific evidence runner parses pytest's JUnit XML through the
+    # hardened parser as a defense-in-depth boundary.
+    "defusedxml>=0.7",
+    # Packaging: PyInstaller produces a self-contained macOS binary the
+    # .app launcher wraps. See packaging/ for the build pipeline.
+    "pyinstaller>=6.0",
+    # Canonical cross-platform icon generation and release-time validation.
+    # Declared directly so Windows/Linux branding never relies on Pillow being
+    # pulled in accidentally by a plotting dependency.
+    "pillow>=11.0",
+    # Real-fit audit tests for ``sift.from_lm`` (Python helper). The
+    # runtime itself never requires statsmodels — only researcher
+    # scripts that fit GLMs do, and the executor reports a clean
+    # install hint when it's missing. Pulling it into the dev group
+    # lets ``tests/test_from_lm_python_real_fits.py`` fit real
+    # ``OLS`` / ``Logit`` / ``Probit`` / ``Poisson`` / ``NegativeBinomial``
+    # / ``PHReg`` / ``IV2SLS`` / ``MixedLM`` models and assert the
+    # helper emits sanitizer-valid + inference-adequate payloads,
+    # rather than relying on the older mocked-fit tests (which proved
+    # silent helper failures on Cox PH and feols are easy to ship).
+    # scipy is a transitive (statsmodels needs it for distributions).
+    "statsmodels>=0.14",
+    "scipy>=1.11",
+    "rdrobust>=2.0.0",
+    "differences>=0.3.0",
+    # differences imports Polars at module load. Pin the last reviewed
+    # compatibility-runtime line so Windows-on-ARM uses the documented
+    # non-AVX fallback instead of an unqualified transitive wheel.
+    "polars[rtcompat]==1.43.2",
+    # scikit-learn upper-bound pinned <1.7 for factor_analyzer 0.5.1
+    # compatibility. DO NOT BUMP without verifying factor_analyzer
+    # has shipped a release that calls ``check_array(ensure_all_finite=...)``
+    # instead of the removed ``force_all_finite=...`` kwarg. Symptom of
+    # an unsafe bump: ``sift.from_factor_analyzer`` and
+    # ``tests/test_from_factor_analyzer_real_fits.py`` start failing with
+    # ``TypeError: check_array() got an unexpected keyword argument
+    # 'force_all_finite'`` — the FA helper goes silent rather than
+    # surfacing a clean error, so this guard is load-bearing.
+    "scikit-learn>=1.5,<1.7",
+    # Sun-Abraham IW event study, used by ``tests/test_from_sun_abraham_real_fits.py``.
+    # pyfixest mirrors R fixest's ``sunab()`` API (Borusyak-Jaravel-Spiess
+    # 2024 reference; pin loose so a maintenance release flows through).
+    "pyfixest>=0.18",
+    # Python-side exploratory factor analysis (the analogue of R
+    # psych::fa). Powers ``sift.from_factor_analyzer`` and its real-fit
+    # pin under ``tests/test_from_factor_analyzer_real_fits.py``.
+    "factor_analyzer>=0.5",
+    # Test-only: reads back the PDF export to assert on its
+    # actual text content, not just "a file was written". Never
+    # imported by the shipped runtime.
+    "pypdf>=5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+# Never ship workstation state. Coverage databases and interpreter/test caches
+# can contain absolute developer paths and have no place in either release
+# artifact, especially for a product intended for confidential research.
+exclude = [
+    "/.coverage",
+    "/.hypothesis",
+    "/.mypy_cache",
+    "/.pytest_cache",
+    "/.qualification-r-library",
+    "/.r-libs",
+    "/.uv-cache",
+    "/.venv",
+    "/.venv-windows-x64",
+    "/.appenv",
+    "/.uv-python",
+    "/.sift",
+    "/build",
+    "/dist",
+    # Generated native runtimes are assembled into desktop artifacts and must
+    # not be duplicated inside the Python source distribution.
+    "/packaging/vendor/python",
+    # Development evidence is not runtime product material. In particular,
+    # secret-shaped fixtures must never be shipped under a weaker scan policy.
+    "/tests",
+    "/**/.DS_Store",
+    "/**/__pycache__",
+    "/**/*.pyc",
+    "/**/*.pyo",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sift"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra --hypothesis-show-statistics"
+# NumPy intentionally suppresses these Cython extension-size warnings because
+# its public ABI preserves compatibility. Pytest reinstalls its own warning
+# filters during collection and can expose the harmless ndarray variant when
+# netCDF4 is imported after xarray. Keep this exception exact: every other
+# RuntimeWarning remains visible. The adjacent netCDF4 round-trip test proves
+# that the compiled parser actually reads and writes data, rather than merely
+# relying on a successful import.
+filterwarnings = [
+    "ignore:^numpy\\.ndarray size changed, may indicate binary incompatibility\\.:RuntimeWarning",
+]
