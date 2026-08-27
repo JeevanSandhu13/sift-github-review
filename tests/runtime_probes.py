@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from functools import lru_cache
 
 
 _R_PACKAGE_NAME = re.compile(r"[A-Za-z][A-Za-z0-9._]*\Z")
+
+
+def node_process_timeout_seconds() -> float:
+    """Bound a Node subprocess while allowing for CI cold-start scanning."""
+    return 60.0 if os.environ.get("CI") else 10.0
 
 
 @lru_cache(maxsize=None)

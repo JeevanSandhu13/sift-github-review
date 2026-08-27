@@ -21,7 +21,6 @@ rather than wedge the suite.
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import subprocess
 import tempfile
@@ -29,8 +28,9 @@ from pathlib import Path
 
 import pytest
 
+from tests.runtime_probes import node_process_timeout_seconds
+
 NODE = shutil.which("node")
-NODE_RENDER_TIMEOUT_SECONDS = 30 if os.environ.get("CI") else 10
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _RENDERER = _REPO_ROOT / "src" / "sift" / "web" / "markdown.js"
@@ -66,7 +66,7 @@ def _render(text: str) -> str:
             capture_output=True,
             check=False,
             text=True,
-            timeout=NODE_RENDER_TIMEOUT_SECONDS,
+            timeout=node_process_timeout_seconds(),
         )
     if proc.returncode != 0:
         raise AssertionError(

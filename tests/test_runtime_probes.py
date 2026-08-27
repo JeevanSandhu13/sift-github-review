@@ -54,3 +54,11 @@ def test_r_package_probe_rejects_untrusted_package_name(monkeypatch) -> None:
 
     assert not runtime_probes.r_package_loadable("Rscript", "pkg);system('bad')")
     assert not runtime_probes.r_package_loadable(None, "survival")
+
+
+def test_node_process_timeout_allows_ci_cold_start(monkeypatch) -> None:
+    monkeypatch.delenv("CI", raising=False)
+    assert runtime_probes.node_process_timeout_seconds() == 10.0
+
+    monkeypatch.setenv("CI", "true")
+    assert runtime_probes.node_process_timeout_seconds() == 60.0

@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.runtime_probes import node_process_timeout_seconds
+
 NODE = shutil.which("node")
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -40,7 +42,10 @@ def _resolve(raw_text) -> dict | None:
     )
     proc = subprocess.run(
         [NODE, "-e", js, "--", json.dumps(raw_text)],
-        capture_output=True, check=False, text=True, timeout=10,
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=node_process_timeout_seconds(),
     )
     if proc.returncode != 0:
         raise AssertionError(f"crashed: stderr={proc.stderr!r}")
@@ -56,7 +61,11 @@ def _names() -> list[str]:
         f"process.stdout.write(JSON.stringify(window.SiftSlashCommands.ALL_COMMAND_NAMES));"
     )
     proc = subprocess.run(
-        [NODE, "-e", js], capture_output=True, check=False, text=True, timeout=10,
+        [NODE, "-e", js],
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=node_process_timeout_seconds(),
     )
     assert proc.returncode == 0, proc.stderr
     return json.loads(proc.stdout)
