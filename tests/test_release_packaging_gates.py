@@ -29,6 +29,8 @@ def test_windows_production_cannot_skip_signing_or_sidecars() -> None:
 
 def test_windows_build_releases_redundant_trees_before_installer_lifecycle() -> None:
     source = (ROOT / "packaging" / "build_windows.ps1").read_text(encoding="utf-8")
+    bundle_ready = 'throw "Frozen Sift.exe is not an x64 PE image."'
+    frozen_format = "$FrozenFormatReport = & $Executable --format-check"
     verified = "Frozen Windows executable branding/version resources are incomplete."
     build_cleanup = 'Join-Path $RepoRoot "build"'
     vendor_cleanup = 'Join-Path $RepoRoot "packaging\\vendor"'
@@ -41,9 +43,11 @@ def test_windows_build_releases_redundant_trees_before_installer_lifecycle() -> 
     portable = "qualify_windows_portable.ps1"
     restore = "Expand-Archive -LiteralPath $Archive"
     assert (
-        source.index(verified)
+        source.index(bundle_ready)
         < source.index(build_cleanup)
         < source.index(vendor_cleanup)
+        < source.index(frozen_format)
+        < source.index(verified)
         < source.index(cache_cleanup)
         < source.index(installer)
         < source.index(archive)

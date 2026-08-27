@@ -160,6 +160,21 @@ if (-not (Test-Path $Executable)) { throw "Missing $Executable" }
 if ((Get-PortableExecutableMachine $Executable) -ne 0x8664) {
     throw "Frozen Sift.exe is not an x64 PE image."
 }
+
+# The complete frozen bundle now owns copies of the vendored runtime. Release
+# the two multi-gigabyte source/work trees before exercising its confined
+# parser: that parser intentionally refuses to start unless the volume still
+# has Sift's 512 MiB safety reserve. Hosted runners can otherwise cross the
+# reserve even though the finished bundle itself is valid.
+foreach ($Workspace in @(
+    (Join-Path $RepoRoot "build"),
+    (Join-Path $RepoRoot "packaging\vendor")
+)) {
+    if (Test-Path -LiteralPath $Workspace) {
+        Remove-Item -LiteralPath $Workspace -Recurse -Force
+    }
+}
+
 & $Executable --platform-check | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Frozen Windows desktop runtime qualification failed." }
 $FrozenIntegrationReport = & $Executable --integration-check
@@ -192,18 +207,8 @@ if ($ExecutableVersion.ProductName -ne "Sift" -or
     throw "Frozen Windows executable branding/version resources are incomplete."
 }
 
-# PyInstaller's work tree, the source vendoring tree, and uv's download cache
-# are no longer needed once the frozen bundle has passed its runtime, surface,
-# and branding checks. Releasing them here keeps enough disk available to build
-# and lifecycle-test both the installer and portable archive on clean CI hosts.
-foreach ($Workspace in @(
-    (Join-Path $RepoRoot "build"),
-    (Join-Path $RepoRoot "packaging\vendor")
-)) {
-    if (Test-Path -LiteralPath $Workspace) {
-        Remove-Item -LiteralPath $Workspace -Recurse -Force
-    }
-}
+# The download cache is no longer needed once the frozen bundle has passed all
+# runtime, surface, and branding checks.
 uv cache clean
 if ($LASTEXITCODE -ne 0) { throw "uv cache cleanup failed." }
 
