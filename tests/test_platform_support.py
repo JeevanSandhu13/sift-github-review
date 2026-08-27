@@ -220,6 +220,23 @@ def test_linux_release_executes_renderer_and_complete_elf_checks() -> None:
     assert "qualify_credential_store.sh" in source
 
 
+def test_linux_workflow_qualifies_final_archive_after_staging_cleanup() -> None:
+    workflow = (
+        ROOT / ".github" / "workflows" / "platform-qualification.yml"
+    ).read_text(encoding="utf-8")
+    linux_step = workflow.split(
+        "- name: Qualify finalized Linux release artifact", maxsplit=1
+    )[1].split("- name: Qualify frozen Windows executable", maxsplit=1)[0]
+    assert 'ARCHIVE="dist/Sift-Linux-x86_64.tar.gz"' in linux_step
+    assert (
+        "(cd dist && sha256sum --check Sift-Linux-x86_64.tar.gz.sha256)"
+        in linux_step
+    )
+    assert 'verify-sbom \\\n            "$ARCHIVE" "$ARCHIVE.sbom.cdx.json"' in linux_step
+    assert 'qualify_linux_install.sh "$ARCHIVE"' in linux_step
+    assert "dist/sift/sift" not in linux_step
+
+
 def test_windows_release_executes_real_webview2_renderer_check() -> None:
     build = (ROOT / "packaging" / "build_windows.ps1").read_text(encoding="utf-8")
     spec = (ROOT / "packaging" / "sift.spec").read_text(encoding="utf-8")
@@ -289,12 +306,20 @@ def test_native_qualification_workflow_covers_all_three_operating_systems() -> N
     assert "uv sync --locked --all-extras" in workflow
     assert "uv run pytest -q" in workflow
     assert "packaging/vendor_python.py" in workflow
-    assert workflow.count("--platform-check") >= 4
-    assert workflow.count("--analysis-check") == 3
+    # The source check runs on every matrix host. macOS and Windows retain a
+    # directly addressable frozen tree, while Linux moves its verified tree
+    # into the final archive to avoid holding a multi-gigabyte duplicate.
+    assert workflow.count("--platform-check") >= 3
+    assert "Qualify finalized Linux release artifact" in workflow
+    assert workflow.count("--analysis-check") == 2
+    linux_build = (ROOT / "packaging" / "build_linux.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "dist/sift/sift --analysis-check" in linux_build
     assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in workflow
     assert "20cfd1bf945f4377ade1205e4dbc17946fc9a30d" in workflow
     assert "ubuntu-24.04" in workflow
-    assert "qualify_credential_store.sh" in workflow
+    assert "qualify_credential_store.sh" in linux_build
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
 
 

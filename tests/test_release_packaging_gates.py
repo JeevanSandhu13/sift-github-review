@@ -38,6 +38,7 @@ def test_windows_build_releases_redundant_trees_before_installer_lifecycle() -> 
     installer = "Start-Process -FilePath $InnoCompiler"
     archive = "Compress-Archive -Path $Bundle"
     bundle_cleanup = "Remove-Item -LiteralPath $Bundle -Recurse -Force"
+    sidecars = "uv run python -m sift.release_manifest sbom"
     environment_cleanup = 'Join-Path $RepoRoot ".venv"'
     lifecycle = "qualify_windows_install.ps1"
     portable = "qualify_windows_portable.ps1"
@@ -52,11 +53,15 @@ def test_windows_build_releases_redundant_trees_before_installer_lifecycle() -> 
         < source.index(installer)
         < source.index(archive)
         < source.index(bundle_cleanup)
+        < source.index(sidecars)
         < source.index(environment_cleanup)
         < source.index(lifecycle)
         < source.index(portable)
         < source.index(restore)
     )
+    assert source.count(sidecars) == 1
+    assert "uv run " not in source[source.index(environment_cleanup) :]
+    assert "Release artifact changed during qualification" in source
 
 
 def test_windows_installer_qualification_emits_logs_before_cleanup() -> None:

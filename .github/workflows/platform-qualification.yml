@@ -115,14 +115,18 @@ jobs:
           dist/sift/sift --platform-check
           dist/sift/sift --analysis-check
 
-      - name: Qualify frozen Linux executable
+      - name: Qualify finalized Linux release artifact
         if: matrix.platform == 'linux'
+        shell: bash
         run: |
-          dist/sift/sift --platform-check
-          xvfb-run -a dist/sift/sift --renderer-check
-          dist/sift/sift --analysis-check
-          packaging/linux/qualify_credential_store.sh dist/sift/sift
-          uv run python packaging/verify_linux_elf_dependencies.py dist/sift
+          ARCHIVE="dist/Sift-Linux-x86_64.tar.gz"
+          test -s "$ARCHIVE"
+          test -s "$ARCHIVE.sha256"
+          test -s "$ARCHIVE.sbom.cdx.json"
+          (cd dist && sha256sum --check Sift-Linux-x86_64.tar.gz.sha256)
+          uv run python -m sift.release_manifest verify-sbom \
+            "$ARCHIVE" "$ARCHIVE.sbom.cdx.json"
+          bash packaging/qualify_linux_install.sh "$ARCHIVE"
 
       - name: Qualify frozen Windows executable
         if: matrix.platform == 'windows'

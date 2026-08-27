@@ -287,34 +287,9 @@ Compress-Archive -Path $Bundle -DestinationPath $Archive -CompressionLevel Optim
 if (-not (Test-Path $Archive)) { throw "Archive creation failed." }
 Remove-Item -LiteralPath $Bundle -Recurse -Force
 
-# The workflow has already finished source qualification in its own locked
-# environment. Releasing that redundant, repository-local copy leaves ample
-# room for Setup while retaining the native build environment needed below to
-# generate and verify release trust metadata.
-$SourceEnvironment = Join-Path $RepoRoot ".venv"
-if (Test-Path -LiteralPath $SourceEnvironment -PathType Container) {
-    Remove-Item -LiteralPath $SourceEnvironment -Recurse -Force
-}
-
-# Exercise what researchers receive, not only the pre-installer bundle. This
-# performs a silent per-user clean install, an in-place reinstall/upgrade,
-# frozen runtime checks, and an uninstall while proving external user state is
-# retained.
-& (Join-Path $RepoRoot "packaging\qualify_windows_install.ps1") `
-    -Installer $Installer
-if ($LASTEXITCODE -ne 0) { throw "Installed Windows lifecycle qualification failed." }
-
-& (Join-Path $RepoRoot "packaging\qualify_windows_portable.ps1") -Archive $Archive
-if ($LASTEXITCODE -ne 0) { throw "Portable Windows archive qualification failed." }
-
-# Preserve the historical build output for downstream frozen-executable checks
-# and local release inspection. At this point Setup's temporary installation
-# has been removed, so restoring the bundle does not recreate the peak.
-Expand-Archive -LiteralPath $Archive -DestinationPath (Join-Path $RepoRoot "dist") -Force
-if (-not (Test-Path $Executable -PathType Leaf)) {
-    throw "Portable archive did not restore the qualified frozen bundle."
-}
-
+# Generate portable trust metadata while the locked source environment still
+# exists. Recreating that environment after installer qualification wastes
+# several gigabytes of I/O and can cross the hosted runner's safety reserve.
 foreach ($Artifact in @($Installer, $Archive)) {
     $ArtifactHash = (Get-FileHash -Algorithm SHA256 $Artifact).Hash.ToLowerInvariant()
     $ArtifactName = Split-Path $Artifact -Leaf
@@ -346,6 +321,46 @@ foreach ($Artifact in @($Installer, $Archive)) {
         if ($LASTEXITCODE -ne 0 -or -not (Test-Path "$Artifact.sig.json")) {
             throw "Detached release signature generation failed for $ArtifactName."
         }
+    }
+}
+
+# The workflow has already finished source qualification in its own locked
+# environment. Release that redundant, repository-local copy after generating
+# trust metadata so Setup has ample room and uv never recreates the environment.
+$SourceEnvironment = Join-Path $RepoRoot ".venv"
+if (Test-Path -LiteralPath $SourceEnvironment -PathType Container) {
+    Remove-Item -LiteralPath $SourceEnvironment -Recurse -Force
+}
+
+# Exercise what researchers receive, not only the pre-installer bundle. This
+# performs a silent per-user clean install, an in-place reinstall/upgrade,
+# frozen runtime checks, and an uninstall while proving external user state is
+# retained.
+& (Join-Path $RepoRoot "packaging\qualify_windows_install.ps1") `
+    -Installer $Installer
+if ($LASTEXITCODE -ne 0) { throw "Installed Windows lifecycle qualification failed." }
+
+& (Join-Path $RepoRoot "packaging\qualify_windows_portable.ps1") -Archive $Archive
+if ($LASTEXITCODE -ne 0) { throw "Portable Windows archive qualification failed." }
+
+# Preserve the historical build output for downstream frozen-executable checks
+# and local release inspection. At this point Setup's temporary installation
+# has been removed, so restoring the bundle does not recreate the peak.
+Expand-Archive -LiteralPath $Archive -DestinationPath (Join-Path $RepoRoot "dist") -Force
+if (-not (Test-Path $Executable -PathType Leaf)) {
+    throw "Portable archive did not restore the qualified frozen bundle."
+}
+
+# Installation and extraction must not mutate the release artifacts. Recheck
+# their hashes without recreating the deleted source environment.
+foreach ($Artifact in @($Installer, $Archive)) {
+    $ArtifactName = Split-Path $Artifact -Leaf
+    $ExpectedHash = (
+        (Get-Content -LiteralPath "$Artifact.sha256" -Raw).Trim() -split '\s+'
+    )[0].ToLowerInvariant()
+    $ActualHash = (Get-FileHash -Algorithm SHA256 $Artifact).Hash.ToLowerInvariant()
+    if ($ActualHash -ne $ExpectedHash) {
+        throw "Release artifact changed during qualification: $ArtifactName."
     }
 }
 
