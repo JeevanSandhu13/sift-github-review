@@ -52,13 +52,14 @@ def _render(text: str) -> str:
         # window.SiftMarkdown - emulate that surface.
         f"const window = {{}};"
         f"eval(code);"
-        f"const input = JSON.parse(process.argv[1]);"
+        f"const input = fs.readFileSync(0, 'utf8');"
         f"process.stdout.write(window.SiftMarkdown.render(input));"
     )
     proc = subprocess.run(
-        [NODE, "-e", js, "--", json.dumps(text)],
+        [NODE, "-e", js],
         capture_output=True,
         check=False,
+        input=text,
         text=True,
         timeout=NODE_RENDER_TIMEOUT_SECONDS,
     )

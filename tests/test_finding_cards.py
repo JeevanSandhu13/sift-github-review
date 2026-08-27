@@ -35,17 +35,16 @@ def _render(text: str) -> str:
         f"const code = fs.readFileSync({json.dumps(str(_RENDERER))}, 'utf8');"
         f"const window = {{}};"
         f"eval(code);"
-        f"const input = JSON.parse(process.argv[1]);"
+        f"const input = fs.readFileSync(0, 'utf8');"
         f"process.stdout.write(window.SiftMarkdown.render(input));"
     )
     proc = subprocess.run(
-        [NODE, "-e", js, "--", json.dumps(text)],
+        [NODE, "-e", js],
         capture_output=True,
         check=False,
+        input=text,
         text=True,
-        # Windows CI may spend more than ten seconds starting the first Node
-        # process while Defender scans the freshly checked-out runtime. The
-        # renderer itself remains synchronous and is still strictly bounded.
+        # Keep the synchronous renderer bounded even on a loaded CI host.
         timeout=NODE_RENDER_TIMEOUT_SECONDS,
     )
     if proc.returncode != 0:
