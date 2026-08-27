@@ -121,7 +121,17 @@ def _module_importable(name: str) -> bool:
     try:
         importlib.import_module(name)
         return True
-    except Exception:  # noqa: BLE001 - native loader failures become a failed check
+    except Exception as exc:  # noqa: BLE001 - native loader failures become a failed check
+        # Release qualification can opt into a precise loader diagnostic. It
+        # stays off for normal users so platform reports remain content-free,
+        # while CI can distinguish a missing host library from an incompatible
+        # native module without hiding the original exception.
+        if os.environ.get("SIFT_PLATFORM_IMPORT_DIAGNOSTICS") == "1":
+            print(
+                f"Sift platform import failed for {name}: "
+                f"{type(exc).__name__}: {exc}",
+                file=sys.stderr,
+            )
         return False
 
 

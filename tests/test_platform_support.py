@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from sift.platform_support import (
     WINDOWS_11_MINIMUM_BUILD,
     WINDOWS_WEBVIEW2_CLIENT,
@@ -22,6 +24,7 @@ from sift.platform_support import (
     windows_webview2_runtime_supported,
     windows_webview2_runtime_version,
 )
+from sift import platform_support
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +34,26 @@ def test_each_os_has_one_reviewed_renderer() -> None:
     assert preferred_webview_gui("darwin") == "cocoa"
     assert preferred_webview_gui("win32") == "edgechromium"
     assert preferred_webview_gui("linux") == "qt"
+
+
+def test_import_diagnostics_are_explicit_and_opt_in(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fail_import(_name: str) -> None:
+        raise OSError("native loader detail")
+
+    monkeypatch.setattr(platform_support.importlib, "import_module", fail_import)
+    monkeypatch.delenv("SIFT_PLATFORM_IMPORT_DIAGNOSTICS", raising=False)
+    assert platform_support._module_importable("example.native") is False
+    assert capsys.readouterr().err == ""
+
+    monkeypatch.setenv("SIFT_PLATFORM_IMPORT_DIAGNOSTICS", "1")
+    assert platform_support._module_importable("example.native") is False
+    assert capsys.readouterr().err == (
+        "Sift platform import failed for example.native: "
+        "OSError: native loader detail\n"
+    )
 
 
 def test_windows_runtime_architecture_follows_x64_process_not_arm_host() -> None:

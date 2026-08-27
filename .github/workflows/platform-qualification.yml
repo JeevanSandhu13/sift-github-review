@@ -202,4 +202,6 @@ jobs:
 
       - name: Qualify install, renderer, vault, analysis, upgrade, and removal
         shell: bash
+        env:
+          SIFT_PLATFORM_IMPORT_DIAGNOSTICS: "1"
         run: bash packaging/qualify_linux_install.sh dist/Sift-Linux-x86_64.tar.gz
