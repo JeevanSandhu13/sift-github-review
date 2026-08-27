@@ -26,6 +26,14 @@ def test_linux_release_fails_early_when_required_native_libraries_are_absent() -
         "libxcb-shape.so.0",
         "libxcb-icccm.so.4",
         "libxcb-keysyms.so.1",
+        "libxcb-dri3.so.0",
+        "libxcb-image.so.0",
+        "libxcb-randr.so.0",
+        "libxcb-render-util.so.0",
+        "libxcb-sync.so.1",
+        "libxcb-util.so.1",
+        "libxcb-xfixes.so.0",
+        "libxcb-xkb.so.1",
         "libpulse.so.0",
         "libtbb.so.12",
         "libsnappy.so.1",
@@ -35,6 +43,10 @@ def test_linux_release_fails_early_when_required_native_libraries_are_absent() -
         "libminizip.so.1",
         "libgbm.so.1",
         "libEGL.so.1",
+        "libnspr4.so",
+        "libnss3.so",
+        "libXdamage.so.1",
+        "libxkbfile.so.1",
     ):
         assert f'require_shared_library "{soname}"' in text
 

@@ -259,12 +259,18 @@ def test_ubuntu_2404_artifact_job_installs_complete_desktop_runtime() -> None:
     newer_job = workflow.split("qualify-linux-newer:", maxsplit=1)[1]
     runtime_packages = {
         "libasound2t64", "libdbus-1-3", "libegl1", "libevent-2.1-7t64",
-        "libfontconfig1", "libgbm1", "libgl1", "libminizip1t64", "libopus0",
-        "libpulse0", "libsnappy1v5", "libtbb12", "libwebp7",
-        "libwebpdemux2", "libwebpmux3", "libx11-xcb1", "libxcomposite1",
-        "libxcursor1", "libxi6", "libxkbcommon-x11-0", "libxrandr2",
-        "libxshmfence1", "libxss1", "libxtst6", "libxcb-cursor0",
-        "libxcb-icccm4", "libxcb-keysyms1", "libxcb-shape0",
+        "libexpat1", "libfontconfig1", "libfreetype6", "libgbm1", "libgl1",
+        "libminizip1t64", "libnspr4", "libnss3", "libopus0", "libpulse0",
+        "libsnappy1v5", "libtbb12", "libudev1", "libwebp7",
+        "libwebpdemux2", "libwebpmux3", "libx11-6", "libx11-xcb1",
+        "libxcomposite1", "libxcursor1", "libxdamage1", "libxext6",
+        "libxfixes3", "libxi6", "libxkbcommon0", "libxkbcommon-x11-0",
+        "libxkbfile1", "libxrandr2", "libxshmfence1", "libxss1", "libxtst6",
+        "libxcb1", "libxcb-cursor0", "libxcb-dri3-0", "libxcb-icccm4",
+        "libxcb-image0", "libxcb-keysyms1", "libxcb-randr0",
+        "libxcb-render0", "libxcb-render-util0", "libxcb-shape0",
+        "libxcb-shm0", "libxcb-sync1", "libxcb-util1", "libxcb-xfixes0",
+        "libxcb-xkb1", "zlib1g",
     }
     missing = sorted(package for package in runtime_packages if package not in newer_job)
     assert not missing, f"Ubuntu 24.04 qualification is missing: {missing}"
