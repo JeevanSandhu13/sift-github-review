@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+
+QUALIFICATION_PHASE="startup"
+report_failure() {
+    local status="$?"
+    echo "Linux artifact qualification failed during: $QUALIFICATION_PHASE" >&2
+    exit "$status"
+}
+trap report_failure ERR
+
+phase() {
+    QUALIFICATION_PHASE="$1"
+    echo "Linux artifact qualification: $QUALIFICATION_PHASE"
+}
 
 SCRIPT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -20,6 +33,7 @@ DATA_HOME="$USER_HOME/.local/share"
 BIN_HOME="$USER_HOME/.local/bin"
 mkdir -p "$BUNDLE_ROOT" "$USER_HOME/.sift-sessions/retained"
 printf 'retain' > "$USER_HOME/.sift-sessions/retained/session.sentinel"
+phase "extract archive"
 tar -xzf "$ARCHIVE" -C "$BUNDLE_ROOT"
 
 run_install() {
@@ -31,13 +45,21 @@ run_uninstall() {
         "$DATA_HOME/sift/uninstall.sh" >/dev/null
 }
 
+phase "clean install"
 run_install
+phase "installed platform check"
 "$BIN_HOME/sift" --platform-check >/dev/null
+phase "installed integration check"
 PYTHONDONTWRITEBYTECODE=1 "$BIN_HOME/sift" --integration-check >/dev/null
+phase "installed format-worker check"
 PYTHONDONTWRITEBYTECODE=1 "$BIN_HOME/sift" --format-check >/dev/null
+phase "installed renderer check"
 xvfb-run -a "$BIN_HOME/sift" --renderer-check >/dev/null
+phase "installed analysis-runtime check"
 PYTHONDONTWRITEBYTECODE=1 "$BIN_HOME/sift" --analysis-check >/dev/null
+phase "installed credential-store check"
 "$SCRIPT_ROOT/linux/qualify_credential_store.sh" "$BIN_HOME/sift" >/dev/null
+phase "installed command and desktop metadata checks"
 "$BIN_HOME/sift" --help >/dev/null
 [[ -f "$DATA_HOME/applications/org.sapieninstitute.sift.desktop" ]]
 [[ -x "$DATA_HOME/sift/uninstall.sh" ]]
@@ -47,13 +69,18 @@ desktop-file-validate "$DATA_HOME/applications/org.sapieninstitute.sift.desktop"
 appstreamcli validate --no-net \
     "$DATA_HOME/metainfo/org.sapieninstitute.sift.metainfo.xml"
 
+phase "in-place upgrade"
 run_install
+phase "upgrade state-preservation check"
 [[ "$(cat "$USER_HOME/.sift-sessions/retained/session.sentinel")" == "retain" ]]
+phase "upgraded runtime checks"
 "$BIN_HOME/sift" --platform-check >/dev/null
 PYTHONDONTWRITEBYTECODE=1 "$BIN_HOME/sift" --integration-check >/dev/null
 PYTHONDONTWRITEBYTECODE=1 "$BIN_HOME/sift" --format-check >/dev/null
 
+phase "uninstall"
 run_uninstall
+phase "uninstall and user-state preservation checks"
 [[ ! -e "$BIN_HOME/sift" ]]
 [[ ! -e "$DATA_HOME/sift" ]]
 [[ "$(cat "$USER_HOME/.sift-sessions/retained/session.sentinel")" == "retain" ]]

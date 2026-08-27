@@ -237,6 +237,21 @@ def test_linux_workflow_qualifies_final_archive_after_staging_cleanup() -> None:
     assert "dist/sift/sift" not in linux_step
 
 
+def test_ubuntu_2404_artifact_job_prepares_confinement_policy() -> None:
+    workflow = (
+        ROOT / ".github" / "workflows" / "platform-qualification.yml"
+    ).read_text(encoding="utf-8")
+    newer_job = workflow.split("qualify-linux-newer:", maxsplit=1)[1]
+    preparation = "sudo bash packaging/linux/prepare_ubuntu_host.sh"
+    qualification = (
+        "bash packaging/qualify_linux_install.sh "
+        "dist/Sift-Linux-x86_64.tar.gz"
+    )
+    assert preparation in newer_job
+    assert qualification in newer_job
+    assert newer_job.index(preparation) < newer_job.index(qualification)
+
+
 def test_windows_release_executes_real_webview2_renderer_check() -> None:
     build = (ROOT / "packaging" / "build_windows.ps1").read_text(encoding="utf-8")
     spec = (ROOT / "packaging" / "sift.spec").read_text(encoding="utf-8")
