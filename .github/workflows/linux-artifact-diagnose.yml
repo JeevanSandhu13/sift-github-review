@@ -52,10 +52,19 @@ jobs:
             "$root/Qt6/lib/libQt6Gui.so.6" \
             "$root/Qt6/lib/libQt6WebEngineCore.so.6"; do
             echo "=== $target ==="
-            ldd -r "$target" || true
+            missing="$(ldd "$target" | grep 'not found' || true)"
+            if [[ -n "$missing" ]]; then
+              printf '%s\n' "$missing"
+            else
+              echo "all direct libraries resolved"
+            fi
           done
           echo "=== frozen platform check ==="
           LD_DEBUG=libs extracted/Sift/app/sift --platform-check \
-            2>loader-debug.log || true
+            >platform-report.json 2>loader-debug.log || true
+          cat platform-report.json
+          echo "=== fatal loader lines ==="
           grep -E 'not found|undefined symbol|error|cannot open' \
             loader-debug.log || true
+          echo "=== loader tail ==="
+          tail -n 120 loader-debug.log
