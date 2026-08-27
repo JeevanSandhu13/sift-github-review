@@ -10,6 +10,7 @@ suite if node or the renderer file is unavailable.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -17,6 +18,7 @@ from pathlib import Path
 import pytest
 
 NODE = shutil.which("node")
+NODE_RENDER_TIMEOUT_SECONDS = 30 if os.environ.get("CI") else 10
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _RENDERER = _REPO_ROOT / "src" / "sift" / "web" / "markdown.js"
@@ -41,7 +43,10 @@ def _render(text: str) -> str:
         capture_output=True,
         check=False,
         text=True,
-        timeout=10,
+        # Windows CI may spend more than ten seconds starting the first Node
+        # process while Defender scans the freshly checked-out runtime. The
+        # renderer itself remains synchronous and is still strictly bounded.
+        timeout=NODE_RENDER_TIMEOUT_SECONDS,
     )
     if proc.returncode != 0:
         raise AssertionError(
