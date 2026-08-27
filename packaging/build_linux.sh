@@ -196,6 +196,12 @@ uv run python packaging/verify_frozen_bundle.py dist/sift
 dist/sift/sift --help >/dev/null
 uv run python packaging/verify_linux_elf_dependencies.py dist/sift
 
+# The verified frozen tree is now self-contained. Reclaim build-only copies
+# before staging and compressing the release archive; retaining all three can
+# exhaust otherwise adequate hosted runners at the peak of packaging.
+rm -rf -- build packaging/vendor
+uv cache clean
+
 case "$BUILD_ARCH" in
     x86_64) MANIFEST_ARCH="x86_64" ;;
     aarch64|arm64) MANIFEST_ARCH="aarch64" ;;
@@ -264,10 +270,8 @@ rm -f "$ARCHIVE" "$ARCHIVE.sha256" "$ARCHIVE.sbom.cdx.json" "$ARCHIVE.sig.json"
 tar -C "$STAGE_PARENT" -czf "$ARCHIVE" Sift
 
 # The archive is now the authoritative input to the second lifecycle test.
-# Release the frozen tree, staging copy, and build-only analysis runtime before
-# extracting it again. Keeping those redundant multi-gigabyte trees provided
-# no additional coverage and could exhaust otherwise adequate build hosts.
-rm -rf -- "$STAGE_PARENT" dist/sift build packaging/vendor
+# Release the staging copy before extracting the authoritative archive again.
+rm -rf -- "$STAGE_PARENT" dist/sift
 "$REPO_ROOT/packaging/qualify_linux_install.sh" "$ARCHIVE"
 
 ARCHIVE_NAME="$(basename "$ARCHIVE")"

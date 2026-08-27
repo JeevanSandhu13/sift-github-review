@@ -75,10 +75,20 @@ def test_linux_build_releases_redundant_trees_before_archive_lifecycle() -> None
     source = (ROOT / "packaging" / "build_linux.sh").read_text(encoding="utf-8")
     assert 'mv dist/sift "$STAGE_ROOT/app"' in source
     assert 'cp -R dist/sift/. "$STAGE_ROOT/app/"' not in source
+    verified = "uv run python packaging/verify_linux_elf_dependencies.py dist/sift"
+    build_cleanup = "rm -rf -- build packaging/vendor"
+    cache_cleanup = "uv cache clean"
     archive = 'tar -C "$STAGE_PARENT" -czf "$ARCHIVE" Sift'
-    cleanup = 'rm -rf -- "$STAGE_PARENT" dist/sift build packaging/vendor'
+    staging_cleanup = 'rm -rf -- "$STAGE_PARENT" dist/sift'
     qualify = '"$REPO_ROOT/packaging/qualify_linux_install.sh" "$ARCHIVE"'
-    assert source.index(archive) < source.index(cleanup) < source.index(qualify)
+    assert (
+        source.index(verified)
+        < source.index(build_cleanup)
+        < source.index(cache_cleanup)
+        < source.index(archive)
+        < source.index(staging_cleanup)
+        < source.index(qualify)
+    )
 
 
 def test_macos_release_emits_same_portable_trust_sidecars() -> None:
