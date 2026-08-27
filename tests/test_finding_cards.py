@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -35,18 +36,22 @@ def _render(text: str) -> str:
         f"const code = fs.readFileSync({json.dumps(str(_RENDERER))}, 'utf8');"
         f"const window = {{}};"
         f"eval(code);"
-        f"const input = fs.readFileSync(0, 'utf8');"
+        f"const input = fs.readFileSync(process.argv[1], 'utf8');"
         f"process.stdout.write(window.SiftMarkdown.render(input));"
     )
-    proc = subprocess.run(
-        [NODE, "-e", js],
-        capture_output=True,
-        check=False,
-        input=text,
-        text=True,
-        # Keep the synchronous renderer bounded even on a loaded CI host.
-        timeout=NODE_RENDER_TIMEOUT_SECONDS,
-    )
+    # A temporary file avoids Windows command-line quoting of multiline model
+    # output and avoids relying on Node's platform-specific stdin handle.
+    with tempfile.TemporaryDirectory(prefix="sift render ") as temp_dir:
+        input_path = Path(temp_dir) / "input.md"
+        input_path.write_text(text, encoding="utf-8")
+        proc = subprocess.run(
+            [NODE, "-e", js, str(input_path)],
+            capture_output=True,
+            check=False,
+            text=True,
+            # Keep the synchronous renderer bounded even on a loaded CI host.
+            timeout=NODE_RENDER_TIMEOUT_SECONDS,
+        )
     if proc.returncode != 0:
         raise AssertionError(
             f"renderer crashed:\nstderr={proc.stderr!r}"
