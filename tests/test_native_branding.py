@@ -108,7 +108,8 @@ def test_windows_uses_native_icon_at_every_shell_size() -> None:
     assert 'Join-Path $Programs "Sift"' in qualify
     assert "no registered Sift installation or Start-menu group" in qualify
     assert "CandidateRoot -eq $ExpectedRoot" in qualify
-    assert "sift install with spaces and percent %" in qualify
+    assert '("Sift % $RandomSuffix")' in qualify
+    assert '.Substring(0, 8)' in qualify
     assert "Upgraded Sift failed $Check" in qualify
     portable = (PACKAGING / "qualify_windows_portable.ps1").read_text(
         encoding="utf-8"

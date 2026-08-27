@@ -8,7 +8,13 @@ if (-not $IsWindows -and $env:OS -ne "Windows_NT") {
     throw "Windows installer qualification must run on Windows."
 }
 $ResolvedInstaller = (Resolve-Path $Installer).Path
-$TestRoot = Join-Path ([IO.Path]::GetTempPath()) ("sift install with spaces and percent % " + [guid]::NewGuid())
+# Keep the qualification location representative of the real per-user default
+# while retaining a space and percent sign to catch quoting bugs. The bundled
+# scientific runtime contains legitimate deep package paths, so an artificially
+# long test prefix would cross legacy MAX_PATH even though the default install
+# location does not.
+$RandomSuffix = [guid]::NewGuid().ToString("N").Substring(0, 8)
+$TestRoot = Join-Path ([IO.Path]::GetTempPath()) ("Sift % $RandomSuffix")
 $InstallRoot = Join-Path $TestRoot "Sift"
 $ExpectedRoot = [IO.Path]::GetFullPath(
     $InstallRoot
