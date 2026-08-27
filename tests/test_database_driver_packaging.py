@@ -47,6 +47,7 @@ def test_linux_release_fails_early_when_required_native_libraries_are_absent() -
         "libnss3.so",
         "libXdamage.so.1",
         "libxkbfile.so.1",
+        "libwayland-server.so.0",
     ):
         assert f'require_shared_library "{soname}"' in text
 

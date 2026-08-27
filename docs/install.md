@@ -56,7 +56,10 @@ adjacent `_internal` directory.
 Sift requires a desktop X11 or Wayland session, glibc 2.35 or newer on x86_64
 or glibc 2.39 or newer on ARM64,
 `bubblewrap` with working unprivileged namespace confinement, and a running
-Freedesktop Secret Service-compatible credential vault.
+Freedesktop Secret Service-compatible credential vault. Minimal Ubuntu desktop
+images must also install Qt's runtime libraries, including
+`libwayland-server0`; the app fails closed with a precise platform check when a
+native renderer dependency is absent.
 
 1. Extract the matching `Sift-Linux-x86_64.tar.gz` or
    `Sift-Linux-aarch64.tar.gz` without moving individual files out of

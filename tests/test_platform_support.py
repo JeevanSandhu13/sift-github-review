@@ -288,7 +288,8 @@ def test_ubuntu_2404_artifact_job_installs_complete_desktop_runtime() -> None:
         "libwebpdemux2", "libwebpmux3", "libx11-6", "libx11-xcb1",
         "libxcomposite1", "libxcursor1", "libxdamage1", "libxext6",
         "libxfixes3", "libxi6", "libxkbcommon0", "libxkbcommon-x11-0",
-        "libxkbfile1", "libxrandr2", "libxshmfence1", "libxss1", "libxtst6",
+        "libxkbfile1", "libwayland-server0", "libxrandr2", "libxshmfence1",
+        "libxss1", "libxtst6",
         "libxcb1", "libxcb-cursor0", "libxcb-dri3-0", "libxcb-icccm4",
         "libxcb-image0", "libxcb-keysyms1", "libxcb-randr0",
         "libxcb-render0", "libxcb-render-util0", "libxcb-shape0",
@@ -412,6 +413,7 @@ def test_linux_arm64_has_a_native_baseline_qualification_route() -> None:
     assert "libssl-dev" in workflow
     assert "libffi-dev" in workflow
     assert "pkg-config" in workflow
+    assert "libwayland-server0" in workflow
     assert "Sift-Linux-aarch64.tar.gz" in workflow
     assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in workflow
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow

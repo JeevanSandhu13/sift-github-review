@@ -1017,18 +1017,23 @@ def test_cancellation_during_connect_waits_for_native_bound_then_stops_before_sq
 ) -> None:
     """Sift does not abandon a credentialed connect attempt in a worker."""
     import threading
-    import time
 
     from sift.integration_core import CancellationToken
 
     token = CancellationToken()
     connect_started = threading.Event()
+    cancellation_sent = threading.Event()
     connect_finished = threading.Event()
 
     class Connection:
         def __enter__(self):
             connect_started.set()
-            time.sleep(0.04)
+            # Hold the simulated native connect until cancellation is known
+            # to have been delivered. Wall-clock sleeps made this test depend
+            # on hosted-runner thread scheduling and could let the foreground
+            # thread reach SQL first even though the production boundary was
+            # correct.
+            assert cancellation_sent.wait(timeout=2)
             connect_finished.set()
             return self
 
@@ -1053,9 +1058,9 @@ def test_cancellation_during_connect_waits_for_native_bound_then_stops_before_sq
         connectors, "_create_bounded_engine", lambda *_, **__: engine,
     )
     def cancel_during_connect() -> None:
-        if connect_started.wait(timeout=2):
-            time.sleep(0.01)
+        assert connect_started.wait(timeout=2)
         token.cancel()
+        cancellation_sent.set()
 
     canceller = threading.Thread(target=cancel_during_connect)
     canceller.start()

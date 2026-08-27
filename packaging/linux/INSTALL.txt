@@ -32,16 +32,18 @@ Runtime requirements
 - bubblewrap with working unprivileged namespace confinement.
 - A running Freedesktop Secret Service-compatible credential vault.
 - The standard desktop libraries used by Qt WebEngine, including ALSA,
-  D-Bus, Fontconfig/FreeType, GBM/EGL/OpenGL, NSS/NSPR, udev, X11/XKB, and
-  the XCB extensions. On Ubuntu, install the exact runtime packages shown in
-  the release page's Linux prerequisites before running Sift. Ubuntu 24.04
+  D-Bus, Fontconfig/FreeType, GBM/EGL/OpenGL, NSS/NSPR, udev, Wayland,
+  X11/XKB, and the XCB extensions. On Ubuntu, install the exact runtime
+  packages shown in the release page's Linux prerequisites before running
+  Sift. Ubuntu 24.04
   uses the time64 package names libasound2t64, libevent-2.1-7t64, and
   libminizip1t64 where Ubuntu 22.04 uses libasound2, libevent-2.1-7, and
   libminizip1.
 - Qt WebEngine's NSS/NSPR and XCB-Dri3 dependencies must be present even on a
   minimal desktop installation. Sift's release pipeline explicitly installs
   and verifies these rather than relying on packages preloaded by a build
-  image.
+  image. The same applies to libwayland-server0, which Qt WebEngine loads even
+  when Sift is qualified in a virtual X11 display.
 
 The release pipeline builds on Ubuntu 22.04 x86_64 and reinstalls the resulting
 artifact on Ubuntu 24.04. A separate native lane qualifies the aarch64 build on

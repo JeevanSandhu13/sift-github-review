@@ -55,6 +55,7 @@ require_shared_library "libnspr4.so" "libnspr4"
 require_shared_library "libnss3.so" "libnss3"
 require_shared_library "libXdamage.so.1" "libxdamage1"
 require_shared_library "libxkbfile.so.1" "libxkbfile1"
+require_shared_library "libwayland-server.so.0" "libwayland-server0"
 
 BUILD_ARCH="$(uname -m)"
 UV_ARCH_SYNC_ARGS=()
