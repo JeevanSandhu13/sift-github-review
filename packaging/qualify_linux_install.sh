@@ -48,7 +48,12 @@ run_uninstall() {
 phase "clean install"
 run_install
 phase "installed platform check"
-"$BIN_HOME/sift" --platform-check >/dev/null
+if ! PLATFORM_REPORT="$("$BIN_HOME/sift" --platform-check)"; then
+    # The report is deliberately content-free and identifies the exact
+    # renderer, credential-store, or confinement prerequisite that failed.
+    printf '%s\n' "$PLATFORM_REPORT" >&2
+    false
+fi
 phase "installed integration check"
 PYTHONDONTWRITEBYTECODE=1 "$BIN_HOME/sift" --integration-check >/dev/null
 phase "installed format-worker check"
@@ -74,7 +79,10 @@ run_install
 phase "upgrade state-preservation check"
 [[ "$(cat "$USER_HOME/.sift-sessions/retained/session.sentinel")" == "retain" ]]
 phase "upgraded runtime checks"
-"$BIN_HOME/sift" --platform-check >/dev/null
+if ! PLATFORM_REPORT="$("$BIN_HOME/sift" --platform-check)"; then
+    printf '%s\n' "$PLATFORM_REPORT" >&2
+    false
+fi
 PYTHONDONTWRITEBYTECODE=1 "$BIN_HOME/sift" --integration-check >/dev/null
 PYTHONDONTWRITEBYTECODE=1 "$BIN_HOME/sift" --format-check >/dev/null
 

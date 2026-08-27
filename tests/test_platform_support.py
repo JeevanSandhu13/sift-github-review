@@ -252,6 +252,24 @@ def test_ubuntu_2404_artifact_job_prepares_confinement_policy() -> None:
     assert newer_job.index(preparation) < newer_job.index(qualification)
 
 
+def test_ubuntu_2404_artifact_job_installs_complete_desktop_runtime() -> None:
+    workflow = (
+        ROOT / ".github" / "workflows" / "platform-qualification.yml"
+    ).read_text(encoding="utf-8")
+    newer_job = workflow.split("qualify-linux-newer:", maxsplit=1)[1]
+    runtime_packages = {
+        "libasound2t64", "libdbus-1-3", "libegl1", "libevent-2.1-7t64",
+        "libfontconfig1", "libgbm1", "libgl1", "libminizip1t64", "libopus0",
+        "libpulse0", "libsnappy1v5", "libtbb12", "libwebp7",
+        "libwebpdemux2", "libwebpmux3", "libx11-xcb1", "libxcomposite1",
+        "libxcursor1", "libxi6", "libxkbcommon-x11-0", "libxrandr2",
+        "libxshmfence1", "libxss1", "libxtst6", "libxcb-cursor0",
+        "libxcb-icccm4", "libxcb-keysyms1", "libxcb-shape0",
+    }
+    missing = sorted(package for package in runtime_packages if package not in newer_job)
+    assert not missing, f"Ubuntu 24.04 qualification is missing: {missing}"
+
+
 def test_windows_release_executes_real_webview2_renderer_check() -> None:
     build = (ROOT / "packaging" / "build_windows.ps1").read_text(encoding="utf-8")
     spec = (ROOT / "packaging" / "sift.spec").read_text(encoding="utf-8")
