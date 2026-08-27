@@ -58,7 +58,9 @@ def _render(text: str) -> str:
     )
     with tempfile.TemporaryDirectory(prefix="sift render ") as temp_dir:
         input_path = Path(temp_dir) / "input.md"
-        input_path.write_text(text, encoding="utf-8")
+        # Preserve the exact model output on every operating system.  In
+        # particular, text-mode writes on Windows translate LF to CRLF.
+        input_path.write_bytes(text.encode("utf-8"))
         proc = subprocess.run(
             [NODE, "-e", js, str(input_path)],
             capture_output=True,

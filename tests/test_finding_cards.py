@@ -43,7 +43,10 @@ def _render(text: str) -> str:
     # output and avoids relying on Node's platform-specific stdin handle.
     with tempfile.TemporaryDirectory(prefix="sift render ") as temp_dir:
         input_path = Path(temp_dir) / "input.md"
-        input_path.write_text(text, encoding="utf-8")
+        # Write bytes so Windows does not translate ``\n`` to ``\r\n``.
+        # The renderer's directive fences are intentionally line-ending
+        # sensitive, so text-mode translation would change the test input.
+        input_path.write_bytes(text.encode("utf-8"))
         proc = subprocess.run(
             [NODE, "-e", js, str(input_path)],
             capture_output=True,
