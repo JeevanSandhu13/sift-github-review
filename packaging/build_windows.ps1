@@ -274,6 +274,14 @@ if ($ShouldSign) {
     if ($LASTEXITCODE -ne 0) { throw "Installer signature verification failed." }
 }
 
+# Create the portable artifact while the verified source bundle is available,
+# then release that multi-gigabyte tree before exercising Setup. Keeping the
+# bundle and Setup's installed copy at the same time can exhaust a clean hosted
+# Windows runner even though a researcher machine has adequate install space.
+Compress-Archive -Path $Bundle -DestinationPath $Archive -CompressionLevel Optimal
+if (-not (Test-Path $Archive)) { throw "Archive creation failed." }
+Remove-Item -LiteralPath $Bundle -Recurse -Force
+
 # Exercise what researchers receive, not only the pre-installer bundle. This
 # performs a silent per-user clean install, an in-place reinstall/upgrade,
 # frozen runtime checks, and an uninstall while proving external user state is
@@ -282,10 +290,16 @@ if ($ShouldSign) {
     -Installer $Installer
 if ($LASTEXITCODE -ne 0) { throw "Installed Windows lifecycle qualification failed." }
 
-Compress-Archive -Path $Bundle -DestinationPath $Archive -CompressionLevel Optimal
-if (-not (Test-Path $Archive)) { throw "Archive creation failed." }
 & (Join-Path $RepoRoot "packaging\qualify_windows_portable.ps1") -Archive $Archive
 if ($LASTEXITCODE -ne 0) { throw "Portable Windows archive qualification failed." }
+
+# Preserve the historical build output for downstream frozen-executable checks
+# and local release inspection. At this point Setup's temporary installation
+# has been removed, so restoring the bundle does not recreate the peak.
+Expand-Archive -LiteralPath $Archive -DestinationPath (Join-Path $RepoRoot "dist") -Force
+if (-not (Test-Path $Executable -PathType Leaf)) {
+    throw "Portable archive did not restore the qualified frozen bundle."
+}
 
 foreach ($Artifact in @($Installer, $Archive)) {
     $ArtifactHash = (Get-FileHash -Algorithm SHA256 $Artifact).Hash.ToLowerInvariant()

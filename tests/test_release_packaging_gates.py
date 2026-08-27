@@ -34,16 +34,34 @@ def test_windows_build_releases_redundant_trees_before_installer_lifecycle() -> 
     vendor_cleanup = 'Join-Path $RepoRoot "packaging\\vendor"'
     cache_cleanup = "uv cache clean"
     installer = "Start-Process -FilePath $InnoCompiler"
+    archive = "Compress-Archive -Path $Bundle"
+    bundle_cleanup = "Remove-Item -LiteralPath $Bundle -Recurse -Force"
     lifecycle = "qualify_windows_install.ps1"
-    portable = "Compress-Archive -Path $Bundle"
+    portable = "qualify_windows_portable.ps1"
+    restore = "Expand-Archive -LiteralPath $Archive"
     assert (
         source.index(verified)
         < source.index(build_cleanup)
         < source.index(vendor_cleanup)
         < source.index(cache_cleanup)
         < source.index(installer)
+        < source.index(archive)
+        < source.index(bundle_cleanup)
         < source.index(lifecycle)
         < source.index(portable)
+        < source.index(restore)
+    )
+
+
+def test_windows_installer_qualification_emits_logs_before_cleanup() -> None:
+    source = (ROOT / "packaging" / "qualify_windows_install.ps1").read_text(
+        encoding="utf-8"
+    )
+    assert "Invoke-Installer $InstallArguments $SetupLog" in source
+    assert "Get-Content -LiteralPath $LogPath -Tail 200" in source
+    assert "Get-Content -LiteralPath $UninstallLog -Tail 200" in source
+    assert source.index("Get-Content -LiteralPath $LogPath -Tail 200") < source.index(
+        "if (Test-Path $TestRoot)"
     )
 
 

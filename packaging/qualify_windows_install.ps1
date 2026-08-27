@@ -37,10 +37,16 @@ if ((Test-Path $DefaultExecutable -PathType Leaf) -or
     throw "Windows installer qualification requires a clean host with no registered Sift installation or Start-menu group."
 }
 
-function Invoke-Installer([string[]]$Arguments) {
+function Invoke-Installer([string[]]$Arguments, [string]$LogPath) {
     $Process = Start-Process -FilePath $ResolvedInstaller -ArgumentList $Arguments `
         -Wait -PassThru -NoNewWindow
     if ($Process.ExitCode -ne 0) {
+        if (Test-Path -LiteralPath $LogPath -PathType Leaf) {
+            Write-Host "Last 200 lines of the Sift installer log:"
+            Get-Content -LiteralPath $LogPath -Tail 200 | Write-Host
+        } else {
+            Write-Host "The Sift installer did not create its requested log: $LogPath"
+        }
         throw "Sift installer exited with code $($Process.ExitCode)."
     }
 }
@@ -52,7 +58,7 @@ try {
         "/MERGETASKS=!desktopicon", "/DIR=`"$InstallRoot`"",
         "/LOG=`"$SetupLog`""
     )
-    Invoke-Installer $InstallArguments
+    Invoke-Installer $InstallArguments $SetupLog
     $Executable = Join-Path $InstallRoot "Sift.exe"
     # Set this immediately after Setup returns so every subsequent failure
     # can use the product's own uninstaller from the finally block.
@@ -113,7 +119,7 @@ try {
     $UserState = Join-Path $TestRoot "researcher-state"
     New-Item -ItemType Directory -Path $UserState | Out-Null
     Set-Content -Path (Join-Path $UserState "session.sentinel") -Value "retain" -NoNewline
-    Invoke-Installer $InstallArguments
+    Invoke-Installer $InstallArguments $SetupLog
     if ((Get-Content (Join-Path $UserState "session.sentinel") -Raw) -ne "retain") {
         throw "Upgrade changed researcher-owned state."
     }
@@ -130,6 +136,10 @@ try {
         "/LOG=`"$UninstallLog`""
     ) -Wait -PassThru -NoNewWindow
     if ($Process.ExitCode -ne 0) {
+        if (Test-Path -LiteralPath $UninstallLog -PathType Leaf) {
+            Write-Host "Last 200 lines of the Sift uninstaller log:"
+            Get-Content -LiteralPath $UninstallLog -Tail 200 | Write-Host
+        }
         throw "Sift uninstaller exited with code $($Process.ExitCode)."
     }
     if (Test-Path $Executable) { throw "Uninstall left the application executable behind." }
