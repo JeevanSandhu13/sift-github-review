@@ -52,16 +52,13 @@ required <- c(
   fixest = "0.14.2",
   marginaleffects = "0.32.0"
 )
-current_version <- function(package) {
-  if (requireNamespace(package, quietly = TRUE)) {
-    as.character(packageVersion(package))
-  } else {
-    ""
-  }
+version_matches <- function(package) {
+  requireNamespace(package, quietly = TRUE) &&
+    utils::packageVersion(package) == base::package_version(unname(required[[package]]))
 }
 needed <- names(required)[vapply(
   names(required),
-  function(package) !identical(current_version(package), unname(required[[package]])),
+  function(package) !version_matches(package),
   logical(1)
 )]
 if (length(needed)) {
@@ -69,7 +66,9 @@ if (length(needed)) {
 }
 for (package in names(required)) {
   stopifnot(requireNamespace(package, quietly = TRUE))
-  stopifnot(identical(as.character(packageVersion(package)), unname(required[[package]])))
+  stopifnot(
+    utils::packageVersion(package) == base::package_version(unname(required[[package]]))
+  )
   stopifnot(startsWith(normalizePath(find.package(package)), normalizePath(site_library)))
 }
 RSCRIPT
