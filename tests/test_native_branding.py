@@ -59,7 +59,8 @@ def test_windows_uses_native_icon_at_every_shell_size() -> None:
     for contract in (
         "SetupIconFile=Sift.ico",
         "MinVersion=10.0.22000",
-        "SetupArchitecture=x64",
+        "ArchitecturesAllowed=x64compatible",
+        "ArchitecturesInstallIn64BitMode=x64compatible",
         "UninstallDisplayIcon={app}\\Sift.exe",
         "WizardImageFile=installer-wizard.bmp",
         "WizardSmallImageFile=installer-small.bmp",
@@ -76,6 +77,10 @@ def test_windows_uses_native_icon_at_every_shell_size() -> None:
         "InfoBeforeFile={#SourceDir}\\INSTALL.txt",
     ):
         assert contract in installer
+    # SetupArchitecture is exclusive to Inno Setup 7. Keeping the bootstrapper
+    # compatible with 6.3+ lets the stable compiler used by Windows CI create
+    # the same x64-only, 64-bit-install-mode package.
+    assert "SetupArchitecture=" not in installer
     assert "version=WINDOWS_VERSION_INFO" in spec
     assert "console=IS_WINDOWS" in spec
     assert 'hide_console="hide-early" if IS_WINDOWS else None' in spec

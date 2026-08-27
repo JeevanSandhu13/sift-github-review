@@ -72,7 +72,11 @@ if ($env:SIFT_INNO_SETUP) {
             (Join-Path $ProgramFiles64 "Inno Setup 7\ISCC.exe"),
             (Join-Path $ProgramFilesX86 "Inno Setup 7\ISCC.exe"),
             (Join-Path $LocalPrograms "Inno Setup 7\ISCC.exe"),
-            (Join-Path $LocalPrograms "InnoSetup7\ISCC.exe")
+            (Join-Path $LocalPrograms "InnoSetup7\ISCC.exe"),
+            (Join-Path $ProgramFiles64 "Inno Setup 6\ISCC.exe"),
+            (Join-Path $ProgramFilesX86 "Inno Setup 6\ISCC.exe"),
+            (Join-Path $LocalPrograms "Inno Setup 6\ISCC.exe"),
+            (Join-Path $LocalPrograms "InnoSetup6\ISCC.exe")
         )
         foreach ($Candidate in $InnoCandidates) {
             if (Test-Path $Candidate -PathType Leaf) {
@@ -83,7 +87,7 @@ if ($env:SIFT_INNO_SETUP) {
     }
 }
 if (-not $InnoCompiler) {
-    throw "Inno Setup 7 is required to build the branded x64 per-user installer. Set SIFT_INNO_SETUP to its ISCC.exe if it is installed in a custom location."
+    throw "Inno Setup 6.3 or newer is required to build the branded x64 per-user installer. Set SIFT_INNO_SETUP to its ISCC.exe if it is installed in a custom location."
 }
 $ReleaseMode = if ($env:SIFT_RELEASE_MODE) { $env:SIFT_RELEASE_MODE } else { "development" }
 $ReleaseChannel = if ($env:SIFT_RELEASE_CHANNEL) { $env:SIFT_RELEASE_CHANNEL } else { "stable" }
@@ -187,6 +191,21 @@ if ($ExecutableVersion.ProductName -ne "Sift" -or
     $ExecutableVersion.ProductVersion -ne $Version) {
     throw "Frozen Windows executable branding/version resources are incomplete."
 }
+
+# PyInstaller's work tree, the source vendoring tree, and uv's download cache
+# are no longer needed once the frozen bundle has passed its runtime, surface,
+# and branding checks. Releasing them here keeps enough disk available to build
+# and lifecycle-test both the installer and portable archive on clean CI hosts.
+foreach ($Workspace in @(
+    (Join-Path $RepoRoot "build"),
+    (Join-Path $RepoRoot "packaging\vendor")
+)) {
+    if (Test-Path -LiteralPath $Workspace) {
+        Remove-Item -LiteralPath $Workspace -Recurse -Force
+    }
+}
+uv cache clean
+if ($LASTEXITCODE -ne 0) { throw "uv cache cleanup failed." }
 
 $ShouldSign = (-not $SkipSign -and [bool]$env:SIFT_WINDOWS_CERT_SHA1)
 if ($ShouldSign) {

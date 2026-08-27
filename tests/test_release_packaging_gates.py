@@ -27,6 +27,26 @@ def test_windows_production_cannot_skip_signing_or_sidecars() -> None:
     assert "signtool.exe" in source and "verify /pa /all" in source
 
 
+def test_windows_build_releases_redundant_trees_before_installer_lifecycle() -> None:
+    source = (ROOT / "packaging" / "build_windows.ps1").read_text(encoding="utf-8")
+    verified = "Frozen Windows executable branding/version resources are incomplete."
+    build_cleanup = 'Join-Path $RepoRoot "build"'
+    vendor_cleanup = 'Join-Path $RepoRoot "packaging\\vendor"'
+    cache_cleanup = "uv cache clean"
+    installer = "Start-Process -FilePath $InnoCompiler"
+    lifecycle = "qualify_windows_install.ps1"
+    portable = "Compress-Archive -Path $Bundle"
+    assert (
+        source.index(verified)
+        < source.index(build_cleanup)
+        < source.index(vendor_cleanup)
+        < source.index(cache_cleanup)
+        < source.index(installer)
+        < source.index(lifecycle)
+        < source.index(portable)
+    )
+
+
 def test_windows_store_msix_is_free_store_signed_and_fails_closed() -> None:
     source = (ROOT / "packaging" / "build_windows_store_msix.ps1").read_text(
         encoding="utf-8"

@@ -230,13 +230,14 @@ def test_windows_release_executes_real_webview2_renderer_check() -> None:
     assert "--renderer-check" in qualify
     assert "--credential-store-check" in build
     assert "--credential-store-check" in qualify
-    # The Windows release is deliberately pinned to Inno Setup 7 so its
-    # setup bootstrap is a native x64 executable.  Accept machine-wide and
-    # per-user installs, including Inno's two observed per-user folder names.
+    # Inno Setup 6.3+ supports an x64-only app in 64-bit install mode. Accept
+    # both stable 6.x and 7.x compiler layouts, including their per-user names.
     assert '$InnoCandidates = @(' in build
     assert '"Inno Setup 7\\ISCC.exe"' in build
     assert '"InnoSetup7\\ISCC.exe"' in build
-    assert "Inno Setup 7 is required" in build
+    assert '"Inno Setup 6\\ISCC.exe"' in build
+    assert '"InnoSetup6\\ISCC.exe"' in build
+    assert "Inno Setup 6.3 or newer is required" in build
     # A windowed-only PyInstaller executable has no standard streams on
     # Windows. Sift keeps a console only when launched from an existing
     # console, while normal shell launches hide the console immediately.

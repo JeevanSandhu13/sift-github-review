@@ -22,7 +22,6 @@ AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppCopyright=Copyright (C) 2026 {#MyAppPublisher}
 MinVersion=10.0.22000
-SetupArchitecture=x64
 DefaultDirName={localappdata}\Programs\Sift
 DefaultGroupName=Sift
 DisableProgramGroupPage=yes
