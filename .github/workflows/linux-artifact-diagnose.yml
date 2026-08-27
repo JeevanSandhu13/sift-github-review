@@ -28,7 +28,7 @@ jobs:
             libxcb-render-util0 libxcb-shape0 libxcb-shm0 libxcb-sync1 \
             libxcb-util1 libxcb-xfixes0 libxcb-xkb1 zlib1g
 
-      - name: Download run 20 Linux artifact
+      - name: Download qualified Linux artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: sift-linux-33114835729
@@ -37,34 +37,27 @@ jobs:
           repository: JeevanSandhu13/sift-github-review
           run-id: 33114835729
 
-      - name: Report exact frozen Qt loader failures
+      - name: Report exact frozen Qt import failure
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
           mkdir extracted
           tar -xzf dist/Sift-Linux-x86_64.tar.gz -C extracted
-          root="extracted/Sift/app/_internal/PyQt6"
-          for target in \
-            "$root/QtCore.abi3.so" \
-            "$root/QtWidgets.abi3.so" \
-            "$root/QtWebEngineWidgets.abi3.so" \
-            "$root/Qt6/lib/libQt6Core.so.6" \
-            "$root/Qt6/lib/libQt6Gui.so.6" \
-            "$root/Qt6/lib/libQt6WebEngineCore.so.6"; do
-            echo "=== $target ==="
-            missing="$(ldd "$target" | grep 'not found' || true)"
-            if [[ -n "$missing" ]]; then
-              printf '%s\n' "$missing"
-            else
-              echo "all direct libraries resolved"
-            fi
-          done
-          echo "=== frozen platform check ==="
-          LD_DEBUG=libs extracted/Sift/app/sift --platform-check \
-            >platform-report.json 2>loader-debug.log || true
-          cat platform-report.json
-          echo "=== fatal loader lines ==="
-          grep -E 'not found|undefined symbol|error|cannot open' \
-            loader-debug.log || true
-          echo "=== loader tail ==="
-          tail -n 120 loader-debug.log
+          internal="$PWD/extracted/Sift/app/_internal"
+          LD_LIBRARY_PATH="$internal:$internal/PyQt6/Qt6/lib" \
+          SIFT_FROZEN_INTERNAL="$internal" python3 -I <<'PY'
+          import importlib
+          import os
+          import sys
+          import traceback
+
+          sys.path.insert(0, os.environ["SIFT_FROZEN_INTERNAL"])
+          for name in ("PyQt6", "PyQt6.QtCore", "PyQt6.QtWidgets", "PyQt6.QtWebEngineCore", "PyQt6.QtWebEngineWidgets"):
+              print(f"=== import {name} ===", flush=True)
+              try:
+                  module = importlib.import_module(name)
+              except BaseException:
+                  traceback.print_exc()
+              else:
+                  print(f"loaded {getattr(module, '__file__', '<namespace>')}", flush=True)
+          PY
