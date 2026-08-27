@@ -17,6 +17,7 @@ import pytest
 
 from sift.sanitizer import sanitize
 from sift.verification import verify_payload
+from tests.runtime_probes import r_package_loadable
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,13 +26,7 @@ RSCRIPT = shutil.which("Rscript")
 
 
 def _r_package_available(package: str) -> bool:
-    if RSCRIPT is None:
-        return False
-    result = subprocess.run(
-        [RSCRIPT, "-e", f"quit(status=!requireNamespace('{package}',quietly=TRUE))"],
-        capture_output=True, text=True, timeout=20,
-    )
-    return result.returncode == 0
+    return r_package_loadable(RSCRIPT, package)
 
 
 def _read_r_results(path: Path) -> dict[str, dict]:

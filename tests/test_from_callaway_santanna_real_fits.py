@@ -25,6 +25,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.runtime_probes import r_package_loadable
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from sift.sanitizer import sanitize  # noqa: E402
 
@@ -34,13 +36,7 @@ _RSCRIPT = shutil.which("Rscript")
 
 
 def _r_pkg_available(pkg: str) -> bool:
-    if _RSCRIPT is None:
-        return False
-    res = subprocess.run(
-        [_RSCRIPT, "-e", f'suppressMessages(library({pkg}))'],
-        capture_output=True, text=True, timeout=20,
-    )
-    return res.returncode == 0
+    return r_package_loadable(_RSCRIPT, pkg)
 
 
 def _differences_available() -> bool:

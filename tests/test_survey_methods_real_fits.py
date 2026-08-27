@@ -14,6 +14,7 @@ import pytest
 
 from sift.sanitizer import sanitize
 from sift.verification import verify_payload
+from tests.runtime_probes import r_package_loadable
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,13 +23,7 @@ RSCRIPT = shutil.which("Rscript")
 
 
 def _r_survey_available() -> bool:
-    if RSCRIPT is None:
-        return False
-    result = subprocess.run(
-        [RSCRIPT, "-e", "quit(status=!requireNamespace('survey',quietly=TRUE))"],
-        capture_output=True, text=True, timeout=20,
-    )
-    return result.returncode == 0
+    return r_package_loadable(RSCRIPT, "survey")
 
 
 PYTHON_SCRIPT = r"""

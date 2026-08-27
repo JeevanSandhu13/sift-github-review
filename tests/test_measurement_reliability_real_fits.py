@@ -13,6 +13,7 @@ import pytest
 
 from sift.sanitizer import sanitize
 from sift.verification import verify_payload
+from tests.runtime_probes import r_package_loadable
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -119,11 +120,7 @@ def test_reliability_sanitizer_rejects_forged_contract(python_reliability) -> No
 
 @pytest.mark.skipif(RSCRIPT is None, reason="Rscript unavailable")
 def test_r_psych_reliability_reference(tmp_path: Path) -> None:
-    probe = subprocess.run(
-        [RSCRIPT, "-e", "quit(status=!requireNamespace('psych',quietly=TRUE))"],
-        capture_output=True, text=True, timeout=20,
-    )
-    if probe.returncode != 0:
+    if not r_package_loadable(RSCRIPT, "psych"):
         pytest.skip("R psych package unavailable")
     output = tmp_path / "results.jsonl"
     script = tmp_path / "fit.R"
@@ -146,4 +143,3 @@ sift$from_reliability(items, reverse_items=4L, bootstrap_replicates=200L,
     payload = _payload(output)
     assert payload["estimates"]["alpha"] > 0.85
     assert payload["estimates"]["omega_total"] > 0.85
-
