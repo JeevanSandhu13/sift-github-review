@@ -282,6 +282,15 @@ Compress-Archive -Path $Bundle -DestinationPath $Archive -CompressionLevel Optim
 if (-not (Test-Path $Archive)) { throw "Archive creation failed." }
 Remove-Item -LiteralPath $Bundle -Recurse -Force
 
+# The workflow has already finished source qualification in its own locked
+# environment. Releasing that redundant, repository-local copy leaves ample
+# room for Setup while retaining the native build environment needed below to
+# generate and verify release trust metadata.
+$SourceEnvironment = Join-Path $RepoRoot ".venv"
+if (Test-Path -LiteralPath $SourceEnvironment -PathType Container) {
+    Remove-Item -LiteralPath $SourceEnvironment -Recurse -Force
+}
+
 # Exercise what researchers receive, not only the pre-installer bundle. This
 # performs a silent per-user clean install, an in-place reinstall/upgrade,
 # frozen runtime checks, and an uninstall while proving external user state is

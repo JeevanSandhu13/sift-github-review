@@ -42,8 +42,11 @@ function Invoke-Installer([string[]]$Arguments, [string]$LogPath) {
         -Wait -PassThru -NoNewWindow
     if ($Process.ExitCode -ne 0) {
         if (Test-Path -LiteralPath $LogPath -PathType Leaf) {
-            Write-Host "Last 200 lines of the Sift installer log:"
-            Get-Content -LiteralPath $LogPath -Tail 200 | Write-Host
+            Write-Host "Last 300 non-rollback lines of the Sift installer log:"
+            Get-Content -LiteralPath $LogPath |
+                Where-Object { $_ -notmatch ' Deleting (file|directory): ' } |
+                Select-Object -Last 300 |
+                Write-Host
         } else {
             Write-Host "The Sift installer did not create its requested log: $LogPath"
         }
@@ -137,8 +140,11 @@ try {
     ) -Wait -PassThru -NoNewWindow
     if ($Process.ExitCode -ne 0) {
         if (Test-Path -LiteralPath $UninstallLog -PathType Leaf) {
-            Write-Host "Last 200 lines of the Sift uninstaller log:"
-            Get-Content -LiteralPath $UninstallLog -Tail 200 | Write-Host
+            Write-Host "Last 300 non-cleanup lines of the Sift uninstaller log:"
+            Get-Content -LiteralPath $UninstallLog |
+                Where-Object { $_ -notmatch ' Deleting (file|directory): ' } |
+                Select-Object -Last 300 |
+                Write-Host
         }
         throw "Sift uninstaller exited with code $($Process.ExitCode)."
     }

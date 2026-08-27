@@ -36,6 +36,7 @@ def test_windows_build_releases_redundant_trees_before_installer_lifecycle() -> 
     installer = "Start-Process -FilePath $InnoCompiler"
     archive = "Compress-Archive -Path $Bundle"
     bundle_cleanup = "Remove-Item -LiteralPath $Bundle -Recurse -Force"
+    environment_cleanup = 'Join-Path $RepoRoot ".venv"'
     lifecycle = "qualify_windows_install.ps1"
     portable = "qualify_windows_portable.ps1"
     restore = "Expand-Archive -LiteralPath $Archive"
@@ -47,6 +48,7 @@ def test_windows_build_releases_redundant_trees_before_installer_lifecycle() -> 
         < source.index(installer)
         < source.index(archive)
         < source.index(bundle_cleanup)
+        < source.index(environment_cleanup)
         < source.index(lifecycle)
         < source.index(portable)
         < source.index(restore)
@@ -58,9 +60,11 @@ def test_windows_installer_qualification_emits_logs_before_cleanup() -> None:
         encoding="utf-8"
     )
     assert "Invoke-Installer $InstallArguments $SetupLog" in source
-    assert "Get-Content -LiteralPath $LogPath -Tail 200" in source
-    assert "Get-Content -LiteralPath $UninstallLog -Tail 200" in source
-    assert source.index("Get-Content -LiteralPath $LogPath -Tail 200") < source.index(
+    assert "Last 300 non-rollback lines" in source
+    assert "Last 300 non-cleanup lines" in source
+    assert "Select-Object -Last 300" in source
+    assert "Deleting (file|directory)" in source
+    assert source.index("Select-Object -Last 300") < source.index(
         "if (Test-Path $TestRoot)"
     )
 
