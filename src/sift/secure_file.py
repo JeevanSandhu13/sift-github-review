@@ -247,12 +247,45 @@ def copy_regular_no_follow(
                     raise OSError("short write while copying secure file")
                 written += count
         after = os.fstat(source_fd)
-        stable_fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+        content_fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
         if copied != before.st_size or any(
             getattr(before, field) != getattr(after, field)
-            for field in stable_fields
+            for field in content_fields
         ):
             raise OSError("source file changed while copying")
+
+        # ctime also changes for metadata-only operations. In particular,
+        # macOS cloud-file hydration and provenance/xattr updates can happen
+        # on the first read without changing the file's contents. Treating
+        # that as an unconditional failure made valid iCloud, OneDrive, and
+        # other provider-backed files impossible to import. Keep the stronger
+        # race check by re-reading and hashing only when ctime moved: this
+        # accepts harmless metadata updates while still rejecting a same-size
+        # rewrite whose mtime was restored.
+        if before.st_ctime_ns != after.st_ctime_ns:
+            os.lseek(source_fd, 0, os.SEEK_SET)
+            verification_digest = hashlib.sha256()
+            verified = 0
+            while True:
+                chunk = os.read(source_fd, 1024 * 1024)
+                if not chunk:
+                    break
+                verified += len(chunk)
+                if max_bytes is not None and verified > max_bytes:
+                    raise OSError(
+                        "secure file exceeds the configured size limit"
+                    )
+                verification_digest.update(chunk)
+            confirmed = os.fstat(source_fd)
+            if (
+                verified != copied
+                or verification_digest.digest() != digest.digest()
+                or any(
+                    getattr(before, field) != getattr(confirmed, field)
+                    for field in content_fields
+                )
+            ):
+                raise OSError("source file changed while copying")
         os.fsync(destination_fd)
         return copied, digest.hexdigest()
     except BaseException:

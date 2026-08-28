@@ -33,6 +33,108 @@ def test_secure_copy_hashes_bytes_and_refuses_existing_destination(
         copy_regular_no_follow(source, destination)
 
 
+def test_secure_copy_accepts_ctime_only_metadata_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cloud hydration/provenance updates must not look like data mutation."""
+    source = tmp_path / "source.bin"
+    payload = b"stable cloud-backed source"
+    source.write_bytes(payload)
+    source_identity = (source.stat().st_dev, source.stat().st_ino)
+    real_fstat = os.fstat
+    source_fstat_calls = 0
+
+    def metadata_change(descriptor: int):
+        nonlocal source_fstat_calls
+        metadata = real_fstat(descriptor)
+        if (metadata.st_dev, metadata.st_ino) != source_identity:
+            return metadata
+        source_fstat_calls += 1
+        if source_fstat_calls < 3:
+            return metadata
+        return SimpleNamespace(
+            **{
+                name: getattr(metadata, name)
+                for name in dir(metadata)
+                if name.startswith("st_") and name != "st_ctime_ns"
+            },
+            st_ctime_ns=metadata.st_ctime_ns + 1,
+        )
+
+    monkeypatch.setattr(os, "fstat", metadata_change)
+    destination = tmp_path / "destination.bin"
+    size, digest = copy_regular_no_follow(source, destination)
+
+    assert source_fstat_calls >= 4  # includes the content recheck
+    assert size == len(payload)
+    assert digest == hashlib.sha256(payload).hexdigest()
+    assert destination.read_bytes() == payload
+
+
+def test_secure_copy_rejects_content_change_even_when_only_ctime_reports_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The ctime fallback must remain a content-integrity check."""
+    source = tmp_path / "source.bin"
+    original = b"original content"
+    replacement = b"modified content"
+    assert len(original) == len(replacement)
+    source.write_bytes(original)
+    original_stat = source.stat()
+    source_identity = (original_stat.st_dev, original_stat.st_ino)
+    real_fstat = os.fstat
+    real_lseek = os.lseek
+    source_fstat_calls = 0
+    replaced = False
+
+    def metadata_change(descriptor: int):
+        nonlocal source_fstat_calls
+        metadata = real_fstat(descriptor)
+        if (metadata.st_dev, metadata.st_ino) != source_identity:
+            return metadata
+        source_fstat_calls += 1
+        if source_fstat_calls < 3:
+            return metadata
+        return SimpleNamespace(
+            **{
+                name: getattr(metadata, name)
+                for name in dir(metadata)
+                if name.startswith("st_")
+                and name not in {"st_ctime_ns", "st_mtime_ns"}
+            },
+            st_ctime_ns=metadata.st_ctime_ns + 1,
+            st_mtime_ns=original_stat.st_mtime_ns,
+        )
+
+    def replace_before_verification(
+        descriptor: int, position: int, whence: int,
+    ) -> int:
+        nonlocal replaced
+        metadata = real_fstat(descriptor)
+        if (
+            not replaced
+            and (metadata.st_dev, metadata.st_ino) == source_identity
+            and position == 0
+            and whence == os.SEEK_SET
+        ):
+            source.write_bytes(replacement)
+            os.utime(
+                source,
+                ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+            )
+            replaced = True
+        return real_lseek(descriptor, position, whence)
+
+    monkeypatch.setattr(os, "fstat", metadata_change)
+    monkeypatch.setattr(os, "lseek", replace_before_verification)
+    destination = tmp_path / "destination.bin"
+
+    with pytest.raises(OSError, match="source file changed while copying"):
+        copy_regular_no_follow(source, destination)
+    assert replaced
+    assert not destination.exists()
+
+
 def test_secure_copy_rejects_source_symlink_and_size_limit(tmp_path: Path) -> None:
     source = tmp_path / "source.bin"
     source.write_bytes(b"too large")
