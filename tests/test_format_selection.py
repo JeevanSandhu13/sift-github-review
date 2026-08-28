@@ -72,6 +72,37 @@ def test_parser_read_paths_include_virtualenv_base_runtime(tmp_path: Path) -> No
     assert str(source.resolve()) in paths
 
 
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        (
+            "isolated format parser AppContainer cleanup failed; "
+            "the confinement state is no longer trusted",
+            "materialize:appcontainer-cleanup",
+        ),
+        (
+            "isolated format parser could not start inside confinement",
+            "materialize:confinement-launch",
+        ),
+        (
+            "isolated format parser rejected the input",
+            "materialize:parser-exit",
+        ),
+    ],
+)
+def test_format_self_check_failure_detail_is_actionable_without_host_data(
+    message: str,
+    expected: str,
+) -> None:
+    secret_path = "/confidential/researcher/patient-8472.xml"
+    detail = format_selection_module._self_check_failure_detail(
+        "materialize",
+        FormatSelectionError(f"{message}: {secret_path}"),
+    )
+    assert detail == expected
+    assert secret_path not in detail
+
+
 class _ParserProcessStub:
     def __init__(self) -> None:
         self.pid = 424242

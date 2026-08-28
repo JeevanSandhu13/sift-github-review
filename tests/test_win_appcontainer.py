@@ -27,6 +27,39 @@ import pytest
 
 from sift import win_appcontainer as wa
 
+
+def test_profile_deletion_retries_the_documented_undetermined_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    failed_hr = 0x80070020
+    delete_results = [failed_hr, failed_hr, failed_hr, 0]
+    sleeps: list[float] = []
+
+    class _FakeUserEnv:
+        @staticmethod
+        def CreateAppContainerProfile(*_args) -> int:
+            return 0
+
+        @staticmethod
+        def DeleteAppContainerProfile(_name: str) -> int:
+            return delete_results.pop(0)
+
+    monkeypatch.setattr(wa, "_require_windows", lambda: None)
+    monkeypatch.setattr(wa, "_userenv", _FakeUserEnv(), raising=False)
+    monkeypatch.setattr(
+        wa,
+        "_advapi32",
+        SimpleNamespace(FreeSid=lambda _sid: 0),
+        raising=False,
+    )
+    monkeypatch.setattr(wa.time, "sleep", sleeps.append)
+
+    _sid, cleanup = wa.create_appcontainer_profile("Sift.Test.Retry")
+    cleanup()
+
+    assert delete_results == []
+    assert sleeps == list(wa._PROFILE_DELETE_RETRY_DELAYS_SECONDS[:3])
+
 # ---------------------------------------------------------------------------
 # plan_capability_sids
 # ---------------------------------------------------------------------------

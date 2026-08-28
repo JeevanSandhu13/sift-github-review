@@ -1453,11 +1453,41 @@ def recognize_omop_tables(names: list[str]) -> dict[str, Any]:
             "matched_tables": matched, "coverage": len(matched) / len(OMOP_CORE_TABLES)}
 
 
+def _self_check_failure_detail(stage: str, exc: Exception) -> str:
+    """Return a path- and data-free release-diagnostic classification."""
+    if isinstance(exc, FormatSelectionError):
+        message = str(exc)
+        categories = (
+            ("AppContainer cleanup failed", "appcontainer-cleanup"),
+            ("could not start inside confinement", "confinement-launch"),
+            ("cannot establish its resource monitor", "resource-monitor"),
+            ("exceeded a parser resource limit", "resource-limit"),
+            ("timed out", "timeout"),
+            ("rejected the input", "parser-exit"),
+            ("produced incomplete output", "incomplete-output"),
+            ("malformed metadata", "malformed-metadata"),
+            ("working AppContainer backend", "backend-health"),
+            ("working bubblewrap backend", "backend-health"),
+            ("working sandbox-exec backend", "backend-health"),
+        )
+        category = next(
+            (label for fragment, label in categories if fragment in message),
+            "format-selection",
+        )
+    else:
+        # Exception class names are code-owned and cannot contain a dataset
+        # value or host path. Never expose str(exc) from a parser boundary.
+        category = type(exc).__name__
+    return f"{stage}:{category}"
+
+
 def format_runtime_self_check() -> dict[str, Any]:
     """Exercise the real confined parser process using synthetic local data."""
+    stage = "dependency-import"
     try:
         import pyarrow.parquet as parquet
 
+        stage = "workspace"
         with tempfile.TemporaryDirectory(prefix="sift-format-check-") as folder:
             session = Path(folder).resolve(strict=True)
             source = session / "synthetic.xml"
@@ -1466,6 +1496,7 @@ def format_runtime_self_check() -> dict[str, Any]:
                 "<row><id>2</id><value>3.5</value></row></records>",
                 encoding="utf-8",
             )
+            stage = "materialize"
             output = materialize_selected_format(
                 session,
                 source=source,
@@ -1473,6 +1504,7 @@ def format_runtime_self_check() -> dict[str, Any]:
                 output_name="selected.parquet",
                 timeout_seconds=60,
             )
+            stage = "readback"
             table = parquet.read_table(output)
             ok = table.num_rows == 2 and table.num_columns == 2
     except Exception as exc:  # noqa: BLE001 - bounded release evidence
@@ -1480,8 +1512,7 @@ def format_runtime_self_check() -> dict[str, Any]:
             "schema_version": 1,
             "ok": False,
             "check": "confined_complex_format_worker",
-            # Never leak a host path from a confinement/SDK exception.
-            "detail": type(exc).__name__,
+            "detail": _self_check_failure_detail(stage, exc),
         }
     return {
         "schema_version": 1,

@@ -83,6 +83,13 @@ _FILE_SIZE_MIN_POLL_SECONDS = 0.05
 _FILE_SIZE_MAX_POLL_SECONDS = 0.5
 _FILE_SIZE_SCAN_DUTY_MULTIPLIER = 4.0
 _FILE_SIZE_MAX_SCAN_SECONDS = 1.0
+# DeleteAppContainerProfile can remain temporarily busy after every process
+# and handle owned by Sift has closed. Microsoft explicitly requires callers
+# to invoke it again after a failure because the profile state is then
+# undetermined. Keep the recovery bounded, but give Windows Security and
+# filesystem filter drivers a realistic 1.55-second drain window instead of
+# the former 150 ms window.
+_PROFILE_DELETE_RETRY_DELAYS_SECONDS = (0.05, 0.1, 0.2, 0.4, 0.8)
 _FILE_SIZE_TERMINATION_MARKER = (
     "\n[SIFT SCRIPT STOPPED: file {path!r} reached {observed} bytes, "
     "exceeding the {limit}-byte single-file limit]\n"
@@ -1131,12 +1138,13 @@ def create_appcontainer_profile(
         # so do not silently convert failure into success.
         last_hr = 0
         try:
-            for attempt in range(3):
+            attempts = len(_PROFILE_DELETE_RETRY_DELAYS_SECONDS) + 1
+            for attempt in range(attempts):
                 last_hr = int(_userenv.DeleteAppContainerProfile(name))
                 if not _hresult_failed(last_hr):
                     break
-                if attempt < 2:
-                    time.sleep(0.05 * (attempt + 1))
+                if attempt < len(_PROFILE_DELETE_RETRY_DELAYS_SECONDS):
+                    time.sleep(_PROFILE_DELETE_RETRY_DELAYS_SECONDS[attempt])
             else:
                 raise AppContainerError("DeleteAppContainerProfile", last_hr)
         finally:

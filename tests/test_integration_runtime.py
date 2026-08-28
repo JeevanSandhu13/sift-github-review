@@ -165,7 +165,10 @@ def test_format_runtime_check_cli_materializes_in_confined_child() -> None:
         check=False,
     )
     report = json.loads(completed.stdout)
-    if completed.returncode != 0 and report.get("detail") == "FormatSelectionError":
+    if (
+        completed.returncode != 0
+        and str(report.get("detail", "")).startswith("materialize:backend-health")
+    ):
         from sift.executor import cached_environment
         from sift.format_selection import FormatSelectionError, _require_parser_backend
 
