@@ -421,6 +421,11 @@ def test_linux_arm64_has_a_native_baseline_qualification_route() -> None:
     assert "Sift-Linux-aarch64.tar.gz" in workflow
     assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in workflow
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
+    r_setup = (ROOT / "packaging" / "install_linux_qualification_r.sh").read_text(
+        encoding="utf-8"
+    )
+    assert 'jammy|noble) SIFT_PPM_DISTRO="${VERSION_CODENAME}"' in r_setup
+    assert 'Sys.getenv("SIFT_PPM_DISTRO")' in r_setup
 
 
 def test_development_app_build_is_atomic_and_disk_guarded() -> None:

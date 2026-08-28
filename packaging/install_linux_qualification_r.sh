@@ -10,7 +10,13 @@ set -euo pipefail
 # shellcheck disable=SC1091
 . /etc/os-release
 [[ "${ID:-}" == "ubuntu" ]] || { echo "This qualification recipe is pinned for Ubuntu." >&2; exit 1; }
-[[ "${VERSION_CODENAME:-}" == "jammy" ]] || { echo "This qualification recipe is pinned for Ubuntu 22.04 (Jammy)." >&2; exit 1; }
+case "${VERSION_CODENAME:-}" in
+    jammy|noble) SIFT_PPM_DISTRO="${VERSION_CODENAME}" ;;
+    *)
+        echo "This qualification recipe supports Ubuntu 22.04 (Jammy) and 24.04 (Noble)." >&2
+        exit 1
+        ;;
+esac
 
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install --yes \
@@ -18,10 +24,14 @@ DEBIAN_FRONTEND=noninteractive apt-get install --yes \
 
 SIFT_R_SITE_LIBRARY="/usr/local/lib/R/site-library"
 install -d --mode=0755 "${SIFT_R_SITE_LIBRARY}"
-R_LIBS_SITE="${SIFT_R_SITE_LIBRARY}" R_LIBS_USER="${SIFT_R_SITE_LIBRARY}" Rscript --vanilla - <<'RSCRIPT'
+SIFT_PPM_DISTRO="${SIFT_PPM_DISTRO}" \
+R_LIBS_SITE="${SIFT_R_SITE_LIBRARY}" \
+R_LIBS_USER="${SIFT_R_SITE_LIBRARY}" \
+Rscript --vanilla - <<'RSCRIPT'
 # Use a dated Posit Package Manager snapshot so CI receives reproducible,
-# precompiled Ubuntu 22.04 binaries. Compiling the same dependency graph from
-# CRAN source is both slower and liable to exceed a hosted runner's memory.
+# precompiled binaries for the runner's Ubuntu release and architecture.
+# Compiling the same dependency graph from CRAN source is both slower and
+# liable to exceed a hosted runner's memory.
 site_library <- "/usr/local/lib/R/site-library"
 # GitHub's runner can combine current R with Ubuntu packages built for an older
 # R ABI. Resolve and install the complete qualification graph in the local site
@@ -29,7 +39,10 @@ site_library <- "/usr/local/lib/R/site-library"
 .libPaths(c(site_library, .Library))
 stopifnot(!normalizePath("/usr/lib/R/site-library") %in% normalizePath(.libPaths()))
 options(
-  repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/jammy/2026-08-25"),
+  repos = c(CRAN = sprintf(
+    "https://packagemanager.posit.co/cran/__linux__/%s/2026-08-25",
+    Sys.getenv("SIFT_PPM_DISTRO")
+  )),
   HTTPUserAgent = sprintf(
     "R/%s R (%s)",
     getRversion(),
