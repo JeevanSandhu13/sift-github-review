@@ -96,6 +96,9 @@ def test_frozen_bundle_collects_dynamic_provider_sdks() -> None:
     spec = (ROOT / "packaging/sift.spec").read_text(encoding="utf-8")
     for module in ("openai", "google.genai", "anthropic"):
         assert f'runtime_submodules("{module}")' in spec
+    assert "CLAUDE_AGENT_CLI_BINARIES" in spec
+    assert "binaries=CLAUDE_AGENT_CLI_BINARIES" in spec
+    assert '"claude.exe" if sys.platform == "win32" else "claude"' in spec
 
 
 def test_frozen_bundle_collects_gdal_and_proj_runtime_registries() -> None:

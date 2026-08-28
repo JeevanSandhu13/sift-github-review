@@ -121,6 +121,12 @@ def test_windows_uses_native_icon_at_every_shell_size() -> None:
     assert "legacy MAX_PATH boundary" in portable
 
 
+def test_macos_launcher_preserves_command_line_arguments() -> None:
+    launcher = (PACKAGING / "launcher.sh").read_text(encoding="utf-8")
+    assert 'exec "$SIFT_BIN" "$@"' in launcher
+    assert "do not depend on npm" in launcher
+
+
 def test_linux_desktop_metadata_and_all_hicolor_sizes_are_valid() -> None:
     desktop_path = PACKAGING / "linux" / f"{APP_ID}.desktop.in"
     parser = configparser.ConfigParser(interpolation=None, strict=True)

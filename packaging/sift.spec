@@ -25,9 +25,10 @@ PyInstaller:
 - ``pyreadstat`` is a C extension with a subdivided module layout;
   the default import scan sometimes misses submodules. Listed
   explicitly in ``hiddenimports``.
-- ``claude_agent_sdk`` has dynamic imports for transport plugins
-  (e.g. subprocess-based Claude Code CLI). Listed explicitly so
-  they survive the tree-shake.
+- ``claude_agent_sdk`` has dynamic imports for transport plugins and ships a
+  platform-native Claude executable under ``_bundled``. Both the modules and
+  executable must survive the tree-shake. An API-key user must never need a
+  separate npm installation after installing Sift.
 - ``webview`` (pywebview) loads platform backends dynamically;
   ``webview.platforms.cocoa`` is the macOS one and won't be
   picked up by static analysis.
@@ -215,6 +216,31 @@ GEOSPATIAL_RUNTIME_DATAS = (
     )
 )
 
+# The Anthropic Agent SDK drives its API session through the native Claude
+# executable included in the SDK wheel. PyInstaller follows Python imports but
+# does not automatically collect package executables, which previously left a
+# fully configured Anthropic user with a misleading "Claude Code not found"
+# error on the first message. Treat the executable as a required binary on
+# every target platform and fail the build immediately if the installed SDK
+# wheel does not provide it.
+CLAUDE_AGENT_SDK_DIRS = collect_data_files(
+    "claude_agent_sdk", includes=["_bundled/.gitignore"],
+)
+if not CLAUDE_AGENT_SDK_DIRS:
+    raise RuntimeError("claude-agent-sdk package directory could not be resolved")
+CLAUDE_AGENT_SDK_ROOT = Path(CLAUDE_AGENT_SDK_DIRS[0][0]).parent.parent
+CLAUDE_AGENT_CLI_NAME = "claude.exe" if sys.platform == "win32" else "claude"
+CLAUDE_AGENT_CLI = (
+    CLAUDE_AGENT_SDK_ROOT / "_bundled" / CLAUDE_AGENT_CLI_NAME
+)
+if not CLAUDE_AGENT_CLI.is_file():
+    raise RuntimeError(
+        f"claude-agent-sdk is missing required bundled CLI: {CLAUDE_AGENT_CLI}"
+    )
+CLAUDE_AGENT_CLI_BINARIES = [
+    (str(CLAUDE_AGENT_CLI), "claude_agent_sdk/_bundled"),
+]
+
 # Sift Skills library — ``sift.skills.list_builtin_skills``
 # reads these ``*.md`` files via ``Path(__file__).parent /
 # "skills_library"`` at runtime, same "package data, not importable
@@ -372,7 +398,7 @@ WINDOWS_VERSION_INFO = (
 a = Analysis(
     [ENTRY],
     pathex=[str(REPO_ROOT / "src")],
-    binaries=[],
+    binaries=CLAUDE_AGENT_CLI_BINARIES,
     # Keep the complete Analysis data expression on this line.  Besides making
     # the frozen inputs easy to audit, the packaging contract test deliberately
     # verifies that the vendored analysis runtime cannot disappear from this

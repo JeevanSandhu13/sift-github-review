@@ -15,42 +15,11 @@
 
 set -euo pipefail
 
-# Bridge the GUI process's PATH to the user's tool installs.
-#
-# macOS launches a double-clicked .app under launchd with a bare PATH
-# (typically just /usr/bin:/bin:/usr/sbin:/sbin) — none of /usr/local/bin,
-# /opt/homebrew/bin, ~/.local/bin, or any Node version manager dirs are
-# visible. The Claude Agent SDK that backs Sift spawns the ``claude``
-# CLI as a subprocess to run the agent loop; when ``claude`` is the
-# npm-installed script (``#!/usr/bin/env node``), launching it from a
-# double-clicked .app fails immediately with
-#   env: node: No such file or directory
-#   Fatal error in message reader: Command failed with exit code 127
-# and the chat UI surfaces "session setup failed: Command failed with
-# exit code 127". The same install works fine from a terminal because
-# the shell's PATH was assembled by /etc/profile + ~/.zshrc.
-#
-# Fix: prepend the conventional macOS dev-tool locations to PATH so the
-# subprocess can find both ``claude`` (native or npm) AND ``node``. This
-# does NOT source the user's shell init — that risks running arbitrary
-# code on every launch — it just adds well-known directories that
-# either exist or don't. Order matters: user-scope paths come before
-# system-scope so a per-user override wins over a system install.
-#
-# The list covers Homebrew (Apple Silicon + Intel), Volta, Bun, the
-# default npm-global prefix, ``~/.local/bin``, the two common
-# shell-shim managers (asdf, mise), and Python-specific interpreter
-# managers (pyenv, uv, conda, python.org's framework installer).
-# Anything else (exotic prefixes, custom ``$PREFIX`` builds) needs
-# intervention beyond this launcher — neither ``~/.zshrc`` nor
-# ``~/.zshenv`` is sourced from a Finder/launchd launch (the shebang
-# above is bash, and launchd does not run shell init files for .app
-# launches), so editing those files will NOT change the PATH this
-# script sees. Researchers in that case should either (a) symlink the
-# missing tool into one of the listed directories, (b) set the PATH
-# via ``launchctl setenv PATH ...`` from a LaunchAgent, or (c) launch
-# Sift from a terminal session where the shell init has already
-# assembled PATH.
+# Bridge the GUI process's PATH to researcher-installed analysis runtimes.
+# Finder launches applications with a minimal PATH, so conventional Python,
+# R, and Stata installation locations would otherwise be invisible. Sift's
+# provider runtimes are bundled and do not depend on npm, Node, or a separate
+# command-line installation.
 #
 # Why the Python-specific paths matter: ``find_python()`` in
 # env_detect.py picks the first ``python3`` on PATH. On a fresh macOS
@@ -104,4 +73,4 @@ fi
 # diagnostic capture so credentials and local paths are redacted before
 # writing and retention/size ceilings apply consistently on every OS.
 # Shell-level redirection here would create an unredacted bypass.
-exec "$SIFT_BIN"
+exec "$SIFT_BIN" "$@"

@@ -43,6 +43,64 @@ def test_bundle_surface_accepts_runtime_and_refuses_ambiguous_root(
         module.prohibited_bundle_entries(tmp_path / "missing")
 
 
+def test_bundle_surface_requires_bundled_anthropic_runtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    expected = (
+        bundle
+        / "_internal"
+        / "claude_agent_sdk"
+        / "_bundled"
+        / ("claude.exe" if module.os.name == "nt" else "claude")
+    )
+
+    failures = module.required_runtime_failures(bundle)
+    assert failures == [
+        f"missing Anthropic agent runtime: {expected.relative_to(bundle)}"
+    ]
+
+    expected.parent.mkdir(parents=True)
+    expected.write_bytes(b"runtime")
+    if module.os.name != "nt":
+        expected.chmod(0o755)
+    assert module.required_runtime_failures(bundle) == []
+
+
+def test_provider_runtime_probe_starts_bundled_anthropic_runtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    bundle = tmp_path / "bundle"
+    runtime = (
+        bundle
+        / "_internal"
+        / "claude_agent_sdk"
+        / "_bundled"
+        / ("claude.exe" if module.os.name == "nt" else "claude")
+    )
+    runtime.parent.mkdir(parents=True)
+    runtime.write_bytes(b"runtime")
+    observed: dict[str, object] = {}
+
+    def fake_run(command, **kwargs):
+        observed["command"] = command
+        observed["kwargs"] = kwargs
+        return module.subprocess.CompletedProcess(command, 0, "2.1.235\n", "")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    assert module.provider_runtime_probe_failures(bundle) == []
+    assert observed["command"] == [str(runtime), "--version"]
+    assert observed["kwargs"] == {
+        "check": False,
+        "capture_output": True,
+        "text": True,
+        "timeout": 60,
+    }
+
+
 @pytest.mark.parametrize(
     "builder",
     [
