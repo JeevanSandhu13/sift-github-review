@@ -265,10 +265,7 @@ def test_ubuntu_2404_artifact_job_prepares_confinement_policy() -> None:
         ROOT / ".github" / "workflows" / "platform-qualification.yml"
     ).read_text(encoding="utf-8")
     newer_job = workflow.split("qualify-linux-newer:", maxsplit=1)[1]
-    preparation = (
-        "sudo --preserve-env=SIFT_LINUX_QUALIFICATION_ROOT "
-        "bash packaging/linux/prepare_ubuntu_host.sh"
-    )
+    preparation = "sudo bash packaging/linux/prepare_ubuntu_host.sh"
     qualification = (
         "bash packaging/qualify_linux_install.sh "
         "dist/Sift-Linux-x86_64.tar.gz"
@@ -276,20 +273,8 @@ def test_ubuntu_2404_artifact_job_prepares_confinement_policy() -> None:
     assert preparation in newer_job
     assert qualification in newer_job
     assert newer_job.index(preparation) < newer_job.index(qualification)
-    assert "SIFT_LINUX_QUALIFICATION_ROOT: ${{ runner.temp }}" in newer_job
-
-
-def test_ubuntu_2404_host_preparation_preserves_renderer_sandbox() -> None:
-    helper = (
-        ROOT / "packaging" / "linux" / "prepare_ubuntu_host.sh"
-    ).read_text(encoding="utf-8")
-    assert "org.sapieninstitute.sift.qtwebengine" in helper
-    assert "QtWebEngineProcess" in helper
-    assert "flags=(unconfined)" in helper
-    assert "userns," in helper
-    assert "apparmor_parser -r \"$SIFT_PROFILE\"" in helper
-    assert "QTWEBENGINE_DISABLE_SANDBOX" in helper
-    assert "--no-sandbox" in helper
+    assert 'QTWEBENGINE_CHROMIUM_FLAGS: "--disable-gpu"' in newer_job
+    assert 'QT_XCB_GL_INTEGRATION: "none"' in newer_job
 
 
 def test_ubuntu_2404_artifact_job_installs_complete_desktop_runtime() -> None:

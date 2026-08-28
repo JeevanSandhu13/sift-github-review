@@ -23,20 +23,7 @@ SCRIPT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 ARCHIVE="${1:?pass the Sift Linux archive}"
 [[ -f "$ARCHIVE" ]] || { echo "Missing archive: $ARCHIVE" >&2; exit 1; }
-if [[ -n "${SIFT_LINUX_QUALIFICATION_ROOT:-}" ]]; then
-    TEST_ROOT="$SIFT_LINUX_QUALIFICATION_ROOT"
-    [[ "$TEST_ROOT" == /* ]] || {
-        echo "SIFT_LINUX_QUALIFICATION_ROOT must be absolute." >&2
-        exit 1
-    }
-    [[ ! -e "$TEST_ROOT" ]] || {
-        echo "Qualification root already exists: $TEST_ROOT" >&2
-        exit 1
-    }
-    mkdir -m 0700 -p -- "$TEST_ROOT"
-else
-    TEST_ROOT="$(mktemp -d)"
-fi
+TEST_ROOT="$(mktemp -d)"
 cleanup() { rm -rf -- "$TEST_ROOT"; }
 trap cleanup EXIT INT TERM
 

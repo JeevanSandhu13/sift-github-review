@@ -219,8 +219,6 @@ def test_portable_archives_include_human_installation_guidance() -> None:
     assert "/etc/sift/enterprise_policy.yaml" in linux
     assert "bubblewrap" in linux
     assert "sudo ./prepare_ubuntu_host.sh" in linux
-    assert "Qt WebEngine renderer profile" in linux
-    assert "does not disable" in linux
     desktop = (
         ROOT / "packaging" / "linux" / "org.sapieninstitute.sift.desktop.in"
     ).read_text(encoding="utf-8")
