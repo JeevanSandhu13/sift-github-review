@@ -171,8 +171,6 @@ jobs:
     needs: qualify
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    env:
-      SIFT_LINUX_QUALIFICATION_ROOT: ${{ runner.temp }}/sift-linux-install-qualification
     steps:
       - name: Check out qualification scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -196,6 +194,8 @@ jobs:
             libxcb-util1 libxcb-xfixes0 libxcb-xkb1 unixodbc xvfb zlib1g
 
       - name: Prepare Ubuntu confinement policy
+        env:
+          SIFT_LINUX_QUALIFICATION_ROOT: ${{ runner.temp }}/sift-linux-install-qualification
         run: sudo --preserve-env=SIFT_LINUX_QUALIFICATION_ROOT bash packaging/linux/prepare_ubuntu_host.sh
 
       - name: Download the Ubuntu 22.04-built Linux artifact
@@ -207,5 +207,6 @@ jobs:
       - name: Qualify install, renderer, vault, analysis, upgrade, and removal
         shell: bash
         env:
+          SIFT_LINUX_QUALIFICATION_ROOT: ${{ runner.temp }}/sift-linux-install-qualification
           SIFT_PLATFORM_IMPORT_DIAGNOSTICS: "1"
         run: bash packaging/qualify_linux_install.sh dist/Sift-Linux-x86_64.tar.gz
