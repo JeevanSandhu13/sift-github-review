@@ -162,17 +162,27 @@ if ((Get-PortableExecutableMachine $Executable) -ne 0x8664) {
 }
 
 # The complete frozen bundle now owns copies of the vendored runtime. Release
-# the two multi-gigabyte source/work trees before exercising its confined
-# parser: that parser intentionally refuses to start unless the volume still
-# has Sift's 512 MiB safety reserve. Hosted runners can otherwise cross the
-# reserve even though the finished bundle itself is valid.
+# every redundant multi-gigabyte source/work tree and the download cache before
+# exercising its confined parser: that parser intentionally refuses to start
+# unless the volume still has Sift's 512 MiB safety reserve. Hosted runners can
+# otherwise cross the reserve even though the finished bundle itself is valid.
 foreach ($Workspace in @(
     (Join-Path $RepoRoot "build"),
-    (Join-Path $RepoRoot "packaging\vendor")
+    (Join-Path $RepoRoot "packaging\vendor"),
+    (Join-Path $RepoRoot ".venv")
 )) {
     if (Test-Path -LiteralPath $Workspace) {
         Remove-Item -LiteralPath $Workspace -Recurse -Force
     }
+}
+uv cache clean
+if ($LASTEXITCODE -ne 0) { throw "uv cache cleanup failed." }
+$QualificationFreeBytes = [System.IO.DriveInfo]::new(
+    [System.IO.Path]::GetPathRoot($RepoRoot)
+).AvailableFreeSpace
+Write-Host "Frozen runtime qualification has $QualificationFreeBytes free bytes."
+if ($QualificationFreeBytes -lt 512MB) {
+    throw "Frozen runtime qualification cannot preserve the 512 MiB disk safety reserve."
 }
 
 & $Executable --platform-check | Out-Null
@@ -207,8 +217,8 @@ if ($ExecutableVersion.ProductName -ne "Sift" -or
     throw "Frozen Windows executable branding/version resources are incomplete."
 }
 
-# The download cache is no longer needed once the frozen bundle has passed all
-# runtime, surface, and branding checks.
+# Discard anything the post-build verification commands added back to the
+# download cache before creating the installer and portable archive.
 uv cache clean
 if ($LASTEXITCODE -ne 0) { throw "uv cache cleanup failed." }
 
@@ -324,12 +334,17 @@ foreach ($Artifact in @($Installer, $Archive)) {
     }
 }
 
-# The workflow has already finished source qualification in its own locked
-# environment. Release that redundant, repository-local copy after generating
-# trust metadata so Setup has ample room and uv never recreates the environment.
-$SourceEnvironment = Join-Path $RepoRoot ".venv"
-if (Test-Path -LiteralPath $SourceEnvironment -PathType Container) {
-    Remove-Item -LiteralPath $SourceEnvironment -Recurse -Force
+# All uv-backed build and trust-metadata work is complete. Release both the
+# workflow environment (normally removed before frozen checks) and the pinned
+# Windows build environment before exercising Setup so the install and upgrade
+# lifecycle retain the same disk safety margin as a researcher machine.
+foreach ($Environment in @(
+    (Join-Path $RepoRoot ".venv"),
+    $env:UV_PROJECT_ENVIRONMENT
+)) {
+    if ($Environment -and (Test-Path -LiteralPath $Environment -PathType Container)) {
+        Remove-Item -LiteralPath $Environment -Recurse -Force
+    }
 }
 
 # Exercise what researchers receive, not only the pre-installer bundle. This

@@ -34,12 +34,14 @@ def test_windows_build_releases_redundant_trees_before_installer_lifecycle() -> 
     verified = "Frozen Windows executable branding/version resources are incomplete."
     build_cleanup = 'Join-Path $RepoRoot "build"'
     vendor_cleanup = 'Join-Path $RepoRoot "packaging\\vendor"'
+    source_environment_cleanup = 'Join-Path $RepoRoot ".venv"'
+    build_environment_cleanup = "$env:UV_PROJECT_ENVIRONMENT"
     cache_cleanup = "uv cache clean"
+    free_space_gate = "$QualificationFreeBytes -lt 512MB"
     installer = "Start-Process -FilePath $InnoCompiler"
     archive = "Compress-Archive -Path $Bundle"
     bundle_cleanup = "Remove-Item -LiteralPath $Bundle -Recurse -Force"
     sidecars = "uv run python -m sift.release_manifest sbom"
-    environment_cleanup = 'Join-Path $RepoRoot ".venv"'
     lifecycle = "qualify_windows_install.ps1"
     portable = "qualify_windows_portable.ps1"
     restore = "Expand-Archive -LiteralPath $Archive"
@@ -47,20 +49,22 @@ def test_windows_build_releases_redundant_trees_before_installer_lifecycle() -> 
         source.index(bundle_ready)
         < source.index(build_cleanup)
         < source.index(vendor_cleanup)
+        < source.index(source_environment_cleanup)
+        < source.index(cache_cleanup)
+        < source.index(free_space_gate)
         < source.index(frozen_format)
         < source.index(verified)
-        < source.index(cache_cleanup)
         < source.index(installer)
         < source.index(archive)
         < source.index(bundle_cleanup)
         < source.index(sidecars)
-        < source.index(environment_cleanup)
+        < source.rindex(build_environment_cleanup)
         < source.index(lifecycle)
         < source.index(portable)
         < source.index(restore)
     )
     assert source.count(sidecars) == 1
-    assert "uv run " not in source[source.index(environment_cleanup) :]
+    assert "uv run " not in source[source.rindex(build_environment_cleanup) :]
     assert "Release artifact changed during qualification" in source
 
 
