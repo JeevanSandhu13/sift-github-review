@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import importlib.util
 import json
 from pathlib import Path
 
@@ -13,6 +14,17 @@ from sift.evaluation import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_method_evidence_failure_excerpt_is_bounded_and_keeps_the_tail() -> None:
+    script = ROOT / "scripts" / "method_qualification_evidence.py"
+    spec = importlib.util.spec_from_file_location("method_evidence_script", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module._failure_excerpt("short", limit=8) == "short"
+    excerpt = module._failure_excerpt("0123456789", limit=4)
+    assert excerpt == "[earlier output omitted]\n6789"
 
 
 def _passing_artifact() -> dict:

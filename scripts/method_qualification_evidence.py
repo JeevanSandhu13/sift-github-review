@@ -43,6 +43,14 @@ def _module_name(filename: str) -> str:
     return filename.removesuffix(".py").replace("/", ".")
 
 
+def _failure_excerpt(value: str, *, limit: int = 24_000) -> str:
+    """Keep enough synthetic-test context to diagnose a native-runner failure."""
+    text = value.strip()
+    if len(text) <= limit:
+        return text
+    return "[earlier output omitted]\n" + text[-limit:]
+
+
 def _runner_manifest() -> dict[str, object]:
     python_packages: dict[str, str] = {}
     for name in (
@@ -190,6 +198,20 @@ def main() -> int:
         f"Method qualification evidence: {artifact['status']} "
         f"({sum(row['status'] == 'pass' for row in node_results.values())}/{len(node_results)} nodes)"
     )
+    if not passed:
+        print("Non-passing method qualification nodes:", file=sys.stderr)
+        for node, result in node_results.items():
+            if result["status"] != "pass":
+                print(f"- {node}: {result['status']}", file=sys.stderr)
+        if "completed" in locals():
+            for label, output in (
+                ("pytest stdout", completed.stdout),
+                ("pytest stderr", completed.stderr),
+            ):
+                excerpt = _failure_excerpt(output)
+                if excerpt:
+                    print(f"--- {label} ---", file=sys.stderr)
+                    print(excerpt, file=sys.stderr)
     return 0 if passed else 1
 
 
