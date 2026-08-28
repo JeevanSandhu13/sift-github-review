@@ -6,9 +6,9 @@ Installation
 1. Extract the complete Sift-Linux-<architecture>.tar.gz archive.
 2. Open a terminal in the extracted Sift directory.
 3. On Ubuntu 24.04, first verify that the operating system permits Sift's
-   sandbox. This helper is a no-op when the policy already works; otherwise it
-   installs Ubuntu's official narrow bubblewrap AppArmor profile without
-   disabling the system-wide user-namespace restriction:
+   sandboxes. The helper installs Ubuntu's official narrow bubblewrap profile
+   and a path-bound Qt WebEngine renderer profile. It does not disable the
+   system-wide user-namespace restriction or Chromium's renderer sandbox:
 
      sudo ./prepare_ubuntu_host.sh
 
@@ -20,9 +20,12 @@ Installation
 
 The installer is per-user and does not require administrator access. It uses
 XDG_DATA_HOME and XDG_BIN_HOME when those variables are set; otherwise it
-installs under ~/.local/share and ~/.local/bin. The optional Ubuntu host-policy
+installs under ~/.local/share and ~/.local/bin. The Ubuntu host-policy
 preparation is separate from the application install and requires an
-administrator because it installs an operating-system AppArmor policy.
+administrator because it installs operating-system AppArmor policies. The Qt
+profile is bound to the Sift renderer helper at the default per-user install
+path. For an approved custom XDG location, set SIFT_QTWEBENGINE_PROCESS to the
+exact helper path while running the preparation command.
 
 Runtime requirements
 --------------------
@@ -84,8 +87,8 @@ Uninstall removes the application, launcher, desktop entry, and Sift icons.
 Research sessions, project .sift directories, diagnostics, and credential-vault
 entries are deliberately retained. Forget credentials inside Sift before
 uninstalling if you also want the corresponding secrets removed. The Ubuntu
-bubblewrap profile is also retained because it is shared operating-system
-policy, not user-owned Sift application data.
+bubblewrap and Qt WebEngine profiles are also retained because they are shared
+operating-system policy, not user-owned Sift application data.
 
 Support checks
 --------------

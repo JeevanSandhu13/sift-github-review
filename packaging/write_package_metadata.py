@@ -52,7 +52,7 @@ def main() -> int:
             {
                 "may_require_administrator": True,
                 "command": "sudo ./prepare_ubuntu_host.sh",
-                "scope": "Ubuntu 24.04 bubblewrap AppArmor policy only",
+                "scope": "Ubuntu 24.04 bubblewrap and Qt WebEngine AppArmor policies only",
             }
             if args.platform == "linux" else None
         ),
