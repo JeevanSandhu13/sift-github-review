@@ -83,5 +83,10 @@ jobs:
               "$BIN_HOME/sift" --renderer-check || true
             grep -HE 'SIGABRT|SIGTRAP|EPERM|EACCES|clone3?\(' \
               "$RUNNER_TEMP"/sift-renderer.trace* | tail -300 || true
+            grep -l 'tgkill.*SIGABRT' "$RUNNER_TEMP"/sift-renderer.trace* \
+              | while IFS= read -r trace; do
+                  printf 'Final syscalls from %s\n' "$trace"
+                  tail -300 "$trace"
+                done
           fi
           exit "$status"
