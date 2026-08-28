@@ -218,7 +218,7 @@ uv cache clean
 case "$BUILD_ARCH" in
     x86_64) MANIFEST_ARCH="x86_64" ;;
     aarch64|arm64) MANIFEST_ARCH="aarch64" ;;
-    *) echo "Unsupported Linux release architecture: $ARCH" >&2; exit 1 ;;
+    *) echo "Unsupported Linux release architecture: $BUILD_ARCH" >&2; exit 1 ;;
 esac
 VERSION="$(uv run python -c 'try:
  import tomllib

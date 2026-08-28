@@ -338,6 +338,8 @@ def test_linux_build_uses_stable_archive_architecture_and_glibc_baseline() -> No
     assert "command -v cc" in source
     assert "build-essential" in source
     assert "--no-binary-package cryptography" in source
+    assert 'Unsupported Linux release architecture: $BUILD_ARCH' in source
+    assert 'Unsupported Linux release architecture: $ARCH' not in source
     assert "Rust 1.83 or newer" in source
     assert "AESGCM.generate_key" in source
     assert 'Sift-Linux-${MANIFEST_ARCH}.tar.gz' in source
