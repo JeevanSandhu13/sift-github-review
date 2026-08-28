@@ -11,6 +11,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_source_distribution_excludes_local_word_drafts() -> None:
+    project = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    assert '"/*.docx"' in project
+    assert "/*.docx" in ignore
+
+
 def test_windows_production_cannot_skip_signing_or_sidecars() -> None:
     source = (ROOT / "packaging" / "build_windows.ps1").read_text(encoding="utf-8")
     assert '$ReleaseMode -eq "production"' in source

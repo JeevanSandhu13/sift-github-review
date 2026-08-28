@@ -46,6 +46,9 @@ scratch/
 *.local.*
 *.tmp
 *.bak
+# Root-level Word drafts and Office lock files are workstation material, not
+# Sift source. Documentation intended for the repository belongs under docs/.
+/*.docx
 
 # Developer-tool local state may contain permission allowlists and
 # machine-specific paths.

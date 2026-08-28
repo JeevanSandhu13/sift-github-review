@@ -314,6 +314,11 @@ exclude = [
     "/.sift",
     "/build",
     "/dist",
+    # Local research/article drafts are not project source. Cloud-backed Word
+    # placeholders can report a logical size before their bytes are hydrated,
+    # which makes an sdist fail midway with "unexpected end of data" unless
+    # they are excluded before Hatch opens them.
+    "/*.docx",
     # Generated native runtimes are assembled into desktop artifacts and must
     # not be duplicated inside the Python source distribution.
     "/packaging/vendor/python",
