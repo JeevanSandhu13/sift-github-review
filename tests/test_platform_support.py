@@ -405,7 +405,9 @@ def test_linux_arm64_has_a_native_baseline_qualification_route() -> None:
     workflow = (
         ROOT / ".github" / "workflows" / "linux-arm64-native-qualification.yml"
     ).read_text(encoding="utf-8")
-    assert "runs-on: [self-hosted, Linux, ARM64, sift-ubuntu-24-04-arm64]" in workflow
+    assert "runs-on: ubuntu-24.04-arm" in workflow
+    assert "push:" in workflow
+    assert '"src/**"' in workflow
     assert 'test "$(uname -m)" = "aarch64"' in workflow
     assert 'test "$VERSION_ID" = "24.04"' in workflow
     assert 'test "$(getconf GNU_LIBC_VERSION)" = "glibc 2.39"' in workflow

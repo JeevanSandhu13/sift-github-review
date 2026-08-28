@@ -2,6 +2,14 @@ name: Linux ARM64 native qualification
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - "src/**"
+      - "packaging/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/linux-arm64-native-qualification.yml"
 
 permissions:
   contents: read
@@ -12,9 +20,10 @@ concurrency:
 
 jobs:
   qualify:
-    # Register a clean Ubuntu 24.04 aarch64 runner with this additional label.
-    # Current Qt ARM64 wheels require glibc 2.39 and the supported libwebp ABI.
-    runs-on: [self-hosted, Linux, ARM64, sift-ubuntu-24-04-arm64]
+    # GitHub's standard ARM64 runner gives every public-repository build a
+    # fresh Ubuntu client without requiring a developer-owned VM. Current Qt
+    # ARM64 wheels require glibc 2.39 and the Ubuntu 24.04 libwebp ABI.
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
     steps:
       - name: Verify the native target
