@@ -60,6 +60,47 @@ def _r_pkg_available(pkg: str) -> bool:
     return r_package_loadable(_RSCRIPT, pkg)
 
 
+@requires_rscript
+def test_from_lm_survives_a_broken_native_summary_printer(tmp_path: Path) -> None:
+    """A package's console formatter cannot invalidate a successful fit.
+
+    Some platform/package combinations can fit a model and construct its
+    summary but fail inside the class-specific ``print`` method. Sift's
+    structured extraction must still complete because console rendering is
+    only a local convenience and is not part of the statistical result.
+    """
+    result_path = tmp_path / "payload.jsonl"
+    script_path = tmp_path / "broken-printer.R"
+    script_path.write_text(
+        f'''\
+Sys.setenv(SIFT_RUN_TOKEN = "test-token-not-secret")
+Sys.setenv(SIFT_RESULT_PATH = "{str(result_path).replace(chr(92), '/')}")
+source("{str(_SIFT_R).replace(chr(92), '/')}")
+fit <- lm(mpg ~ wt, data = mtcars)
+print.summary.lm <- function(x, ...) stop("simulated formatter failure")
+sift$from_lm(fit, label = "printer isolation")
+''',
+        encoding="utf-8",
+    )
+    proc = subprocess.run(
+        [_RSCRIPT, str(script_path)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "structured results remain available" in proc.stdout
+    lines = [
+        json.loads(line)
+        for line in result_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert len(lines) == 1
+    clean = sanitize(lines[0])
+    assert clean.ok, clean.rejection_reason
+    assert (clean.sanitized or {}).get("response_variable") == "mpg"
+
+
 # Minimum set of fields each estimator's payload should carry so the
 # model can evaluate model adequacy on the first turn (rather than
 # round-tripping for it via ``request_data``).

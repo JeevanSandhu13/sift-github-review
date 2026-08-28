@@ -1869,14 +1869,22 @@ sift$from_simulation_design <- function(
 #' accepts. Any extra kwargs passed via `...` are included too (dropped
 #' by the sanitizer if not whitelisted).
 #'
-#' Also prints R's native `summary(model)` table to stdout so the
-#' researcher sees the familiar regression output in the TUI's raw
-#' log panel. Stdout never reaches Claude (executor strips it before
-#' anything returns to the sanitizer), so printing here is only for
-#' the researcher's benefit.
+#' Also attempts to print R's native `summary(model)` table to stdout so
+#' the researcher sees the familiar regression output in the raw log.
+#' The display is deliberately non-fatal: package-specific print methods
+#' are presentation code and must not prevent Sift from extracting a valid
+#' structured result from an otherwise successful fit. Stdout never reaches
+#' the model (the executor strips it before anything returns to the
+#' sanitizer), so printing here is only for the researcher's benefit.
 sift$from_lm <- function(model, ...) {
   s <- summary(model)
-  print(s)
+  tryCatch(
+    print(s),
+    error = function(e) {
+      cat("Sift note: R could not display the native model summary; structured results remain available.\n")
+      invisible(NULL)
+    }
+  )
 
   # Per-class dispatch — the previous version assumed an lm/glm shape
   # ("Estimate" / "Std. Error" columns) and aborted with "undefined
