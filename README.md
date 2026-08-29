@@ -283,6 +283,6 @@ Sift is a project of the [Sapien Institute](https://sapieninstitute.org).
 
 ## License
 
-Copyright 2026 Jeevan Sandhu.
+Copyright 2026 Jeevan Singh Sandhu.
 
 Licensed under the [Apache License 2.0](LICENSE).
