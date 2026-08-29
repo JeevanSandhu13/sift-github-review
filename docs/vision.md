@@ -1,4 +1,4 @@
-# Product direction
+# Product direction and roadmap
 
 ## The problem
 
@@ -30,7 +30,7 @@ rows, credentials, unrestricted files, raw process output, or a general shell.
 The precise same-interpreter limitation for generated analysis code is stated
 in the [architecture](architecture.md) and [security policy](../SECURITY.md).
 
-## Current foundation
+## Current product
 
 - One enumerated tool surface shared across supported model providers.
 - Researcher-supplied Anthropic, OpenAI, Gemini, enterprise-cloud, local, and
@@ -54,7 +54,7 @@ The [verification guide](verification.md) and
 [qualification inventory](qualification_inventory.json) keep those claims
 separate.
 
-## Priorities
+## Near-term priorities
 
 ### Strengthen cumulative disclosure controls
 

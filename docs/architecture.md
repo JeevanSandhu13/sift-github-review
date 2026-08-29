@@ -86,7 +86,7 @@ Typed runtime helpers are preferred over generic result construction because
 they bind maintained fit objects or raw aggregates to required diagnostics. A
 missing diagnostic is reported as missing; it is never treated as a pass.
 
-### IV as regression-bucket extension
+### Shared coefficient result shapes
 
 Instrumental-variable fits use the maintained linear-regression result envelope
 with explicit IV fields such as instrument names, first-stage strength,
@@ -136,7 +136,7 @@ Replication packages and reports are derived from stored sanitized material.
 Raw datasets are never copied into those exports. Export approval and
 institutional policy are evaluated locally before a file is produced.
 
-## Non-negotiable invariants
+## Security invariants
 
 - Raw rows, raw free text, raw stdout, and raw stderr never reach the model.
 - Credentials, connection strings, and unrestricted local paths never reach
@@ -155,7 +155,7 @@ institutional policy are evaluated locally before a file is produced.
 - A platform-neutral unit test is not native release evidence. macOS, Windows,
   and Linux artifacts pass their own build and installation lanes.
 
-## Explicit limits
+## Limits and deployment assumptions
 
 Sift's controls reduce accidental disclosure and constrain a non-adversarial
 provider whose generated code may be mistaken or prompt-injected. They do not
@@ -166,4 +166,3 @@ and increasingly conservative, but they are not a formal privacy proof.
 Differential privacy is a separate, explicit opt-in mechanism. Deployments that
 include a malicious provider, a malicious analyst, or cross-user access require
 additional governance and a narrower host-owned execution language.
-

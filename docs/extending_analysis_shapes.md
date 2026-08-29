@@ -4,20 +4,19 @@ How to extend the sanitizer by **adding a field to an existing shape** or
 **adding a new shape**. This is a reference for the contracts enforced by the
 current implementation.
 
-The standard for "extension is done" is a two-bar test, applied
-the same way for every shape, every language:
+An extension is complete when it meets two conditions in every implemented
+language:
 
 1. **Sanitizer-valid** — a real fit's emitted payload passes
    `sift.sanitizer.sanitize()` with `ok=True`.
-2. **Inference-adequate** — the payload carries enough fit-metric
+2. **Inference-adequate** — the payload carries enough fit metrics
    or design-detail fields that the model can interpret the result
    without round-tripping for missing scalars. *Helper produces a
    payload that doesn't crash* is below the bar.
 
-Mocked tests verify
-"if a fit has these attributes, the helper works." Real-fit tests
-verify "a real fit has these attributes." The difference is
-non-trivial.
+Mocked tests establish how a helper behaves when attributes are present.
+Real-fit tests establish that the maintained library actually provides those
+attributes. Both are useful, but only the latter protects the integration.
 
 ---
 
@@ -52,10 +51,9 @@ property tests cover malformed, adversarial, and boundary payloads.
 
 ## Layer 1 — extending an existing shape
 
-When a researcher's use case lands inside an existing shape but
-needs a field the allowlist doesn't accept, the move is to widen
-the allowlist. The cost is small, the risk is small, the
-disclosure surface grows by exactly the field you add.
+Extend an existing shape when the new method has the same result structure and
+the additional fields have a reviewed disclosure profile. Each added field is
+part of the model-visible surface and must be treated accordingly.
 
 ### When this is the right move
 
@@ -76,7 +74,7 @@ disclosure surface grows by exactly the field you add.
   cardinalities are aggregates. Adding `n_clusters` next to
   `fixed_effects` is one more entry in the same dict-int category.
 
-### When to NOT extend an existing shape
+### When to create a new shape
 
 - The new estimator's output is **shaped differently** — nested
   dict, indexed-by-time, multiple linked tables. ATT(g, t) from
@@ -94,11 +92,11 @@ disclosure surface grows by exactly the field you add.
   not a generic allowlist add — it goes into a sanitizer-module
   function specific to the shape.
 
-### The five frozen sets per shape
+### Typed allowlists
 
-Every shape's sanitizer module declares the same kind of frozen
-sets. Working example: [`_sanitize_linear_regression` block in
-src/sift/sanitizer.py](../src/sift/sanitizer.py).
+Sanitizer modules use frozen sets to declare required fields and the supported
+types of optional fields. A working example is the
+[`_sanitize_linear_regression` block in src/sift/sanitizer.py](../src/sift/sanitizer.py).
 
 ```python
 _OLS_REQUIRED:           frozenset[str]   # fields that MUST be present
@@ -167,8 +165,8 @@ whole payload only when the field is required.
 
 ### Worked example — adding `cluster_variables` + `n_clusters`
 
-This is the cluster-robust SE modifier, landed during the
-audit arc. End-to-end:
+The cluster-robust standard-error fields provide a compact example of an
+existing-shape extension:
 
 1. Allowlist additions in [src/sift/sanitizer.py](../src/sift/sanitizer.py):
    ```python
@@ -192,20 +190,17 @@ audit arc. End-to-end:
    describing the auto-emission and what the model can expect to
    see ([src/sift/system_prompt.py](../src/sift/system_prompt.py)).
 
-Cost: ~half a day of focused work including the cross-language
-helper updates and tests. No renderer change needed — the
-regression renderer doesn't display cluster metadata in the
-inline card today (acceptable; it's in the payload for the model
-and surfaces on `expand_result(view="full")`).
+No renderer change is required because cluster metadata is available in the
+full result returned by `expand_result(view="full")` rather than the compact
+inline card.
 
 ---
 
 ## Layer 2 — adding a new shape
 
-When the output doesn't fit any existing shape — the data is
-nested, indexed by time, multi-dimensional, or governed by a new
-SDC primitive — build a new shape. The cost is real (one full PR
-per shape) but the structure is the same every time.
+Create a new shape when the output is nested, indexed by time,
+multidimensional, or governed by a new disclosure-control rule. The required
+layers are the same for every shape.
 
 The minimum unit per shape is **five things**:
 
@@ -355,16 +350,13 @@ is the **secondary** defense — it catches a script that tries to
 slip a curve through `**extra` kwargs to `from_rdd`, before the
 sanitizer would have to drop it anyway.
 
-Both layers belong on every new shape that has a privacy
-carve-out, not just one. The structural exclusion is the
-load-bearing defense; the helper refusal makes intent visible at
-the call site.
+Both layers belong on every new shape that has a privacy exclusion. Structural
+exclusion is the enforcing layer; helper refusal makes the same constraint
+visible at the call site.
 
-The right framing in the system prompt is **positive**: *"the
-analytical results that cross are τ, bandwidth, effective N"*,
-not *"you can't access McCrary density"*. The latter invites
-probing; the former describes the shape of the analytical
-surface.
+The system prompt describes the approved result surface directly: for example,
+*the released RDD result contains the estimate, bandwidth, and effective
+sample size*. It does not enumerate excluded raw diagnostic surfaces.
 
 ### Cross-language helper choice
 
@@ -410,7 +402,7 @@ value.
 
 ---
 
-## Anti-patterns
+## Patterns to avoid
 
 - **Don't roll your own when a canonical package exists.** For
   CS DiD, three packages (`did`, `differences`, `csdid`) all
@@ -461,14 +453,10 @@ The recipe across the codebase:
 
 ---
 
-## The principle the recipe is for
+## Why this contract matters
 
-Every emitted payload has a name, a known output shape, and a
-documented SDC story. The model can't request "run something
-tabular and show me the cells"; it calls `from_callaway_santanna(mp, ...)`
-and gets back a payload whose every field has been thought
-about. The recipe in this doc is what keeps that property as
-new shapes get added — each new entry in the dispatch table
-goes through the same five-thing minimum unit. Generic-tabular
-or schema-on-write would sacrifice the property for breadth you
-can get more safely by walking this recipe.
+Every emitted payload has a registered name, a known output shape, and a
+documented disclosure-control treatment. The model cannot request an arbitrary
+table of cells; it receives the bounded fields defined for a specific analysis
+contract. Following the same sanitizer, renderer, helper, test, and prompt
+process for every new shape preserves that property as coverage grows.
