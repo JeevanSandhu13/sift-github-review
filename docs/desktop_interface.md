@@ -1,193 +1,173 @@
-# Sift desktop interface architecture
+# Desktop interface
 
-## Product direction
+Sift uses one shared interface across macOS, Windows, and Linux. The product
+should feel like a research application: calm, legible, and explicit about
+what is happening. Its restrained console influence appears in technical text
+and state indicators, not in decorative terminal effects.
 
-Sift should feel like a serious research instrument, not a themed terminal.
-The reference image is useful for its clarity, dense information hierarchy,
-visible state, restrained colour, and keyboard-friendly character. The desktop
-application will borrow those qualities without copying the ASCII logo, neon
-green treatment, box-drawing decoration, or permanently dense dashboard.
+This document records the interface contract. It is a reference for changes to
+`src/sift/web/`, the desktop bridge, and native packaging.
 
-The interface is a conventional desktop application with a light
-research-console influence:
+## Design principles
 
-- native operating-system window chrome and native file/folder dialogs;
-- one familiar session sidebar, one primary work area, and one composer;
-- system UI typography for reading and navigation;
-- monospace typography only for paths, code, data fields, counts, model names,
-  audit records, and keyboard shortcuts;
-- a muted green accent for active/verified states, never as the only state cue;
-- square-to-softly-rounded panels, quiet one-pixel borders, and minimal shadow;
-- system light/dark preference with an explicit in-app override;
-- no faux command prompt, scanlines, glow, animated grids, or decorative sci-fi.
+- Use the operating system's normal window frame and file dialogs.
+- Keep one session list, one primary workspace, and one prompt composer.
+- Use system UI type for reading and navigation. Reserve monospace type for
+  paths, code, fields, counts, model names, audit records, and shortcuts.
+- Use a muted green accent for active and verified states, always paired with
+  text or shape.
+- Prefer quiet borders and modest corner radii to heavy shadows or decoration.
+- Follow the system light or dark preference, with an explicit in-app choice.
+- Do not use faux prompts, scanlines, glow, animated grids, ASCII branding, or
+  other “hacker” styling.
 
-## Product truth and trust language
+## Trust language
 
-The UI must distinguish local computation from model disclosure precisely.
-“Raw data stays local” is appropriate for Sift's guarded analysis path. It must
-not be expanded into “nothing leaves this device,” because a researcher can
-permit disclosure-controlled summaries, schema, prompts, and selected
-attachments to reach their chosen model provider.
+The interface distinguishes local processing from model disclosure.
 
-The persistent shell will use the compact label **Local workspace**. Its help
-text will explain: raw datasets are processed locally; only the information
-allowed by the active permission tier is sent to the selected model. The data
-profile and privacy ledger remain the detailed verification surfaces.
+**Raw data stays local** is accurate for Sift's guarded analysis path.
+**Nothing leaves this device** is not accurate: the researcher can allow
+messages, schema, sanitized summaries, and approved figures to reach a chosen
+model provider.
 
-Credential wording must be platform-neutral: secrets are stored in the
-operating system's protected credential store (Keychain on macOS, Credential
-Manager on Windows, and Secret Service/keyring on supported Linux desktops).
+The persistent status label is **Local workspace**. Its supporting text
+explains that raw datasets are processed locally and only information allowed
+by the active permission level is sent to the selected model. The dataset
+profile, result inspector, and disclosure ledger provide the detailed record.
 
-## Information architecture
+Credential copy remains platform-neutral. It says that secrets are stored in
+the operating system's protected credential store, with Keychain, Credential
+Manager, and Secret Service named where platform-specific help is useful.
 
-### 1. First launch and provider setup
+## Main workflows
 
-- A compact Sift wordmark and one-sentence product promise.
-- Provider rows for Anthropic, OpenAI, Google, and OpenAI-compatible endpoints.
-- Each row shows configuration state, key input, save/remove actions, and a
-  plain-language billing note.
-- The continue action remains disabled until at least one provider is usable.
-- Keyboard focus starts at the first incomplete credential field.
-- No provider logo is required for comprehension; provider names remain text.
+### Connect a model
 
-### 2. Workspace selection
+The first-run view presents supported providers as a simple list. Each row has
+configuration state, the required credential or endpoint fields, save and
+remove actions, and a short billing explanation.
 
-- Primary drop target for supported files.
-- Equal access to native **Choose files** and **Choose folder** actions.
-- A synthetic sample-data path for safe evaluation.
-- Recent sessions presented as a conventional list, not a dashboard grid.
-- Provider management remains reachable without leaving the application.
+The primary continue action remains unavailable until at least one provider is
+usable. Keyboard focus begins at the first incomplete field. Provider names
+remain visible as text even when a logo is present.
 
-### 3. Research workspace
+### Choose data
 
-- Left: resizable/collapsible session navigation.
-- Top: application identity, working-directory breadcrumb, local-workspace
-  assurance, and infrequent workspace tools.
-- Centre: readable transcript and analysis outputs, capped to a comfortable
-  line length while tables and code keep their own horizontal scroll areas.
-- Bottom: prompt composer, attachment control, data-permission control, model
-  selector, and context usage.
-- Modal inspectors: dataset profile, privacy ledger, evidence, exports,
-  checkpoints, feedback, and shortcuts. These remain separate because they
-  contain detailed or infrequent work and should not crowd the main workspace.
+The landing view provides:
 
-## Responsive desktop behaviour
+- one clear drop target for supported files;
+- equally visible **Choose files** and **Choose folder** actions;
+- **Try Sift with sample data** for a safe first session;
+- recent sessions in a conventional list;
+- access to provider management and the data-source catalog.
 
-Sift is a desktop application, but it must remain usable when tiled, zoomed, or
-run on a small laptop.
+Database, warehouse, cloud, and research-service connectors explain what
+credential and permission they need before opening a connection. The user
+selects the object or read-only result; the model is not given account-browsing
+access.
 
-- **Wide (1200 px and above):** full session sidebar, full tool labels, centred
-  research transcript.
-- **Standard (900–1199 px):** narrower sidebar and tighter toolbar spacing;
-  secondary labels can truncate with accessible names intact.
-- **Compact (below 900 px):** the session rail collapses; toolbar controls wrap
-  or reduce to essential labels; dialogs use nearly the full viewport.
-- **Reflow/zoom:** ordinary content reflows without two-dimensional scrolling.
-  Real data tables and code blocks may scroll inside their own labelled region.
-- The native window starts at 1180 × 780 and supports a practical minimum of
-  880 × 600. The content CSS continues to reflow below that effective width for
-  browser zoom and accessibility tools.
+### Work in a session
 
-## Cross-platform application contract
+The research workspace has four stable regions:
 
-The same tested HTML/CSS/JavaScript interface runs inside pywebview, while the
-window, web engine, dialogs, credential storage, packaging, signing, and runtime
-sandbox remain native to each platform.
+1. A resizable session sidebar.
+2. A top bar with application identity, workspace path, local-workspace status,
+   and infrequent workspace actions.
+3. A readable transcript containing messages, plans, code, results, warnings,
+   and verification.
+4. A composer containing attachments, permission level, model selection,
+   context usage, and the send action.
 
-### macOS
+Detailed or occasional material opens in focused inspectors rather than
+crowding the transcript. These inspectors include the dataset profile,
+evidence, disclosure ledger, exports, checkpoints, settings, and keyboard
+shortcuts.
 
-- WKWebView in a normal titled, resizable AppKit window.
-- System font stack headed by San Francisco; SF Mono/Menlo for technical text.
-- Command-key labels in the shortcuts panel.
-- `.app` bundle, application icon, hardened runtime, notarization, and DMG flow
-  continue through the existing release pipeline.
+## Content rules
 
-### Windows
+- Plans identify pending, active, completed, and blocked work in text.
+- A result is called verified only when the corresponding deterministic check
+  ran.
+- Warnings and missing diagnostics appear before interpretive prose.
+- Generated code remains selectable and copyable.
+- Wide tables and code blocks scroll within their own labelled region.
+- Raw local output and model-visible sanitized output are not presented as the
+  same object.
+- Errors state what failed, whether local data was affected, and the next safe
+  action. They do not expose credentials, connection strings, raw records, or
+  unrestricted paths.
 
-- WebView2/Edge Chromium in a normal resizable Win32 window.
-- Segoe UI Variable/Segoe UI shell typography and Consolas for technical text.
-- Ctrl-key labels in the shortcuts panel.
-- One-directory signed application and archive continue through the existing
-  Windows release pipeline. WebView2 availability remains part of qualification.
+## Window sizes and reflow
 
-### Linux
+The native window opens at 1180 × 780 and supports a practical minimum of
+880 × 600.
 
-- Qt WebEngine inside a conventional Qt window; no custom client-side titlebar.
-- Desktop/system UI font, then Noto Sans; system monospace for technical text.
-- Ctrl-key labels and Linux desktop theme/high-contrast support.
-- The existing PyInstaller archive remains portable across the documented
-  distribution baseline; application-menu/desktop-file packaging is a later
-  release-delivery layer, not a second UI implementation.
+| Effective width | Interface behavior |
+| --- | --- |
+| 1200 px and above | Full session sidebar, full toolbar labels, centred transcript |
+| 900–1199 px | Narrower sidebar and tighter toolbar spacing |
+| Below 900 px | Collapsed session rail, essential toolbar labels, near-full-width dialogs |
 
-## Accessibility contract
+Ordinary content reflows without page-level horizontal scrolling. Data tables
+and code may scroll inside their own containers. The same rules apply when
+browser zoom or an accessibility tool reduces the effective viewport.
+
+## Platform behavior
+
+The HTML, CSS, JavaScript, and Python bridge remain shared. Native integration
+is platform specific.
+
+| Platform | Web engine and window | Platform details |
+| --- | --- | --- |
+| macOS | WKWebView in a normal AppKit window | San Francisco system stack, SF Mono or Menlo for technical text, Command-key shortcuts, signed and notarized app bundle |
+| Windows | WebView2 in a normal Win32 window | Segoe UI stack, Consolas for technical text, Ctrl-key shortcuts, per-user installer and portable archive |
+| Linux | Qt WebEngine in a conventional Qt window | Desktop font stack with Noto Sans fallback, system monospace, Ctrl-key shortcuts, application-menu entry from the per-user installer |
+
+The Windows beta is currently unsigned; that packaging status does not change
+the interface contract.
+
+## Accessibility
 
 - Every action is keyboard reachable in a logical order.
-- Focus is always visible with at least a two-CSS-pixel indicator and sufficient
-  contrast against adjacent colours.
+- Focus remains visible with a two-CSS-pixel indicator and sufficient contrast
+  against adjacent colours.
 - Interactive targets are at least 28 × 28 CSS pixels; primary controls are
   generally 32–36 pixels high.
-- Normal text targets WCAG AA 4.5:1 contrast; large text targets 3:1.
-- Active, warning, error, verified, and busy states use text or shape in addition
-  to colour.
-- Reduced-motion disables non-essential animation and smooth scrolling.
-- Forced-colours/high-contrast mode retains borders, focus, and control identity.
-- Dialogs expose dialog semantics, descriptive names, close actions, and focus
-  return. The existing keyboard escape handling is retained and strengthened.
-- The transcript stays selectable. Generated code and data tables remain
-  copyable and independently scrollable.
+- Normal text meets WCAG AA 4.5:1 contrast and large text meets 3:1.
+- Active, warning, error, verified, and busy states never rely on colour alone.
+- Reduced-motion mode removes non-essential animation and smooth scrolling.
+- Forced-colours and high-contrast modes preserve borders, focus, and control
+  identity.
+- Dialogs expose names, descriptions, close actions, and focus return.
+- The transcript, code, and tables remain selectable.
+- A skip link moves keyboard users directly to the research workspace.
 
-## Security and performance contract
+## Security and performance
 
-- Keep the JS-to-Python bridge; do not add a localhost REST API or a remote asset
-  dependency.
-- Keep normal native window chrome; no custom draggable-titlebar code.
-- Run the webview in private storage mode explicitly and production debug mode
-  off.
-- Bundle every font/script/style locally and preserve cache-busted asset loading.
-- Add no frontend framework, icon package, analytics SDK, or telemetry.
-- Use CSS custom properties and a small platform-detection script only; the new
-  visual layer should not add meaningful startup or runtime cost.
-- Never put credentials, raw records, connection strings, or private paths into
-  browser storage, data attributes, CSS, or diagnostics.
+- The interface uses the in-process pywebview bridge. It does not open a
+  localhost API server.
+- Scripts, styles, fonts, and icons are bundled locally. No remote asset is
+  required to render the application.
+- Production debug mode is off and webview storage is private.
+- No analytics SDK, telemetry library, frontend framework, or remote font is
+  loaded.
+- Credentials, raw records, connection strings, and private paths never enter
+  browser storage, DOM data attributes, CSS, or model-visible diagnostics.
+- Asset names are cache-busted during packaging, and all platforms use the
+  same generated asset inventory.
 
-## Maintenance workflow
+## Changing the interface
 
-1. Correct platform-specific and overbroad privacy copy.
-2. Add semantic landmarks, a skip link, accurate local-workspace assurance, and
-   platform-aware shortcut labels.
-3. Add a final, isolated desktop-shell stylesheet that replaces the visual
-   system while leaving the mature behaviour layer intact.
-4. Set explicit native window dimensions, minimum size, background, selectable
-   text, zoom support, and private webview storage.
-5. Add automated desktop-GUI contract tests for semantics, platform labels,
-   accessibility modes, responsive breakpoints, native-window options, and
-   cross-platform asset bundling.
-6. Run the full relevant Python and static contract suite.
-7. Render the real interface with a local bridge fixture at wide, standard, and
-   compact sizes; inspect light, dark, reduced-motion, and keyboard focus states.
-8. Fix every issue found, repeat the tests and visual pass, and record the native
-   qualification boundary: this machine can validate macOS directly, while
-   signed Windows/Linux binaries still require their corresponding build hosts.
+An interface change is complete when:
 
-## Acceptance criteria
+1. existing bridge methods and privacy wording remain accurate;
+2. keyboard navigation, visible focus, light and dark themes, reduced motion,
+   and high-contrast behavior have been checked;
+3. the layout has been exercised at wide, standard, compact, and zoomed sizes;
+4. no remote request occurs before a user explicitly invokes a provider,
+   connector, update check, or external link;
+5. cross-platform asset-bundling and desktop contract tests pass;
+6. the locally available native application launches with the packaged assets.
 
-- Existing Sift workflows and bridge method contracts remain unchanged.
-- The interface looks like one calm desktop product on all three platforms.
-- Terminal influence is visible in technical text and state treatment, not in
-  decoration.
-- No clipped primary action at 880 × 600 or equivalent zoomed viewport.
-- All primary workflows are keyboard operable with visible focus.
-- Light, dark, high-contrast, and reduced-motion modes remain legible.
-- No new network request occurs before the researcher explicitly invokes a
-  provider or external link.
-- New assets are included automatically by the cross-platform PyInstaller spec.
-- Automated tests pass and the locally available native application launches.
-
-## Research basis
-
-This plan reconciles Apple Human Interface Guidelines for layout, sidebars, and
-typography; Microsoft guidance for keyboard interaction, navigation, typography,
-and accessibility; GNOME guidance for accessibility, adaptive layout, styling,
-and typography; WCAG 2.2 guidance for contrast, focus appearance, target size,
-and reflow; and pywebview's documented native-window, bridge, private-mode, and
-security architecture.
+Native window, renderer, installer, and confinement behavior must still be
+qualified on the target operating system.
