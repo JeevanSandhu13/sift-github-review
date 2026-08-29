@@ -31,6 +31,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from sift.secure_file import write_bytes_no_follow
 from sift.text_safety import safe_text
 
 
@@ -1314,7 +1315,13 @@ def _worker(source: Path, selection_path: Path, output: Path, metadata_path: Pat
     if len(frame) > 100_000_000 or len(frame.columns) > 100_000:
         raise FormatSelectionError("materialized table exceeds the row or column safety limit")
     frame.to_parquet(output, index=False)
-    metadata_path.write_bytes(_bounded_json(metadata))
+    os.chmod(output, 0o600)
+    write_bytes_no_follow(
+        metadata_path,
+        _bounded_json(metadata),
+        mode=0o600,
+        sync=True,
+    )
 
 
 def materialize_selected_format(
@@ -1366,7 +1373,11 @@ def materialize_selected_format(
             selection_path = staging / "selection.json"
             output = staging / "result.parquet"
             metadata_path = staging / "metadata.json"
-            selection_path.write_bytes(_bounded_json(chosen, max_bytes=64 * 1024))
+            write_bytes_no_follow(
+                selection_path,
+                _bounded_json(chosen, max_bytes=64 * 1024),
+                mode=0o600,
+            )
             command = _worker_command(
                 "materialize", source, selection_path, output, metadata_path,
             )

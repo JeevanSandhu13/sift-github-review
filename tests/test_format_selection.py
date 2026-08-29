@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 import pickle
+import stat
 import sys
 import zipfile
 from pathlib import Path
@@ -51,6 +52,11 @@ def _materialize(session: Path, source: Path, selection: dict | None = None) -> 
     )
     metadata = json.loads(output.with_suffix(".parquet.metadata.json").read_text(encoding="utf-8"))
     assert metadata["parser_pid"] != os.getpid()
+    if os.name != "nt":
+        assert stat.S_IMODE(output.stat().st_mode) == 0o600
+        assert stat.S_IMODE(
+            output.with_suffix(".parquet.metadata.json").stat().st_mode,
+        ) == 0o600
     frame = schema.load_data(output)
     assert schema.row_count(output) == len(frame)
     assert schema.extract(output, "names_only")["observation_count"] == len(frame)
