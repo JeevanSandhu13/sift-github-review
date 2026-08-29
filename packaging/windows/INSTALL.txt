@@ -1,72 +1,73 @@
 SIFT FOR WINDOWS
 ================
 
-Windows beta notice
--------------------
-This beta does not yet carry a CA-backed Authenticode publisher signature.
-Windows Defender SmartScreen may show "Windows protected your PC". Verify the
-published SHA-256 checksum before choosing More info > Run anyway. Smart App
-Control or organization-managed policy may block unsigned applications without
-an override; do not disable those protections to install Sift. Wait for the
-signed general release when local policy blocks the beta.
+Before you install
+------------------
+This Windows beta is not yet signed with a public Authenticode certificate.
+Windows Defender SmartScreen may therefore display "Windows protected your
+PC." Check the published SHA-256 checksum before selecting More info > Run
+anyway. If Smart App Control or an organization-managed policy blocks unsigned
+software, leave that protection enabled and wait for a signed release.
 
-Recommended installation
-------------------------
+Sift supports 64-bit Windows 11, build 22000 or newer. It also needs Microsoft
+Edge WebView2 Runtime 86.0.616.0 or newer, which is normally included with
+Windows 11. If the runtime is missing or outdated, the installer stops without
+changing the computer and directs you to Microsoft's official download.
+
+Install Sift
+------------
 1. Run Sift-Windows-x64-Setup.exe.
-2. Complete the per-user installer. Administrator access is not required.
-3. Open Sift from Start > Sift > Sift.
+2. Follow the per-user installer. Administrator access is not required.
+3. Open Start > Sift > Sift.
 
-Sift requires 64-bit Windows 11 (build 22000 or newer) and the Microsoft Edge
-WebView2 Evergreen Runtime version 86.0.616.0 or newer. Windows 11 normally
-includes a current WebView2 Runtime. If it is missing or too old, the installer
-stops before changing the computer and explains where to obtain the official
-Microsoft runtime.
+The portable download is an alternative for systems where software is deployed
+without an installer. Extract the entire Sift-Windows-x64.zip archive to a
+writable local folder, then run Sift.exe. Keep Sift.exe beside the _internal
+folder; the application will not run if those files are separated.
 
-Portable archive
-----------------
-Extract the complete Sift-Windows-x64.zip archive to a writable local folder,
-then run Sift.exe. Do not copy Sift.exe out of its folder: the adjacent
-_internal directory and analysis runtime are required.
-
-Data, settings, and privacy
----------------------------
-- Sift includes no model account. Add your own provider API key or local model
-  endpoint from Manage providers.
-- API keys, database credentials, and remote-source credentials are stored in
-  Windows Credential Manager, never in a Sift plaintext settings file.
-- Imported sessions are stored under %USERPROFILE%\.sift-sessions. A folder
-  opened in place keeps its private Sift state in that folder's .sift directory.
-- Bounded, redacted diagnostics are stored under %LOCALAPPDATA%\Sift\Logs.
-- Sift does not check for updates at startup. Update access occurs only when
-  you explicitly request it.
-
-Institutional settings
+Your data and settings
 ----------------------
-Administrators may place an optional protected policy at:
+Sift does not include a model account. Connect your own provider account or
+local model from Manage providers.
+
+Credentials are stored in Windows Credential Manager, not in Sift's settings
+files. Imported sessions are stored in %USERPROFILE%\.sift-sessions. A folder
+opened in place keeps its private Sift state in that folder's .sift directory.
+Redacted diagnostic logs are stored in %LOCALAPPDATA%\Sift\Logs. Sift contacts
+the update service only when you ask it to check for an update.
+
+Institutional policy
+--------------------
+Administrators can provide a protected policy file at:
 
   %ProgramData%\Sift\enterprise_policy.yaml
 
-It can restrict providers, data connectors, destinations, disclosure,
-diagnostics, exports, and resource limits. An invalid configured policy fails
-closed. Ordinary users do not need this file.
+The policy can restrict model providers, data connections, disclosure,
+destinations, diagnostics, exports, and resource limits. If a configured policy
+is invalid, Sift does not start the affected operation. Most users do not need
+this file.
 
-Uninstall
----------
-Use Windows Settings > Apps > Installed apps > Sift > Uninstall.
+Troubleshooting
+---------------
+If Sift does not open, confirm that you installed the x64 build on Windows 11
+and that WebView2 is current. For a portable installation, extract the full
+archive instead of moving Sift.exe by itself.
 
-Uninstall removes the application and its shortcuts. Research sessions,
-project .sift directories, diagnostics, and credentials are deliberately
-retained. To remove provider keys, use Manage providers > Forget before
-uninstalling, or remove the Sift entries from Windows Credential Manager.
-
-Support check
--------------
-From PowerShell, run:
+The following PowerShell commands run local checks without reading research
+data or saved credentials:
 
   & "$env:LOCALAPPDATA\Programs\Sift\Sift.exe" --platform-check
   & "$env:LOCALAPPDATA\Programs\Sift\Sift.exe" --credential-store-check
 
-The first command verifies the renderer, credential-store integration,
-bundled assets, 64-bit runtime, and AppContainer confinement. The second
-writes, reads, and deletes a random non-user canary in Windows Credential
-Manager. It never reads or changes a provider or database credential.
+The platform check covers the renderer, bundled assets, 64-bit runtime,
+credential integration, and AppContainer confinement. The credential check
+writes, reads, and removes a temporary test value in Windows Credential
+Manager.
+
+Uninstall Sift
+--------------
+Open Settings > Apps > Installed apps, find Sift, and select Uninstall. The
+uninstaller removes the application and shortcuts but keeps research sessions,
+project .sift directories, logs, and credentials. Use Manage providers > Forget
+before uninstalling, or remove Sift entries from Windows Credential Manager, if
+you also want to delete saved credentials.

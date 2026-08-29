@@ -1,100 +1,103 @@
 SIFT FOR LINUX
 ==============
 
-Installation
+Choose a download
+-----------------
+Use Sift-Linux-x86_64.tar.gz for most Intel and AMD computers. Use
+Sift-Linux-aarch64.tar.gz for 64-bit ARM systems. Sift supports glibc-based
+desktop distributions with glibc 2.35 or newer on x86_64, or 2.39 or newer on
+ARM64.
+
+Install Sift
 ------------
-1. Extract the complete Sift-Linux-<architecture>.tar.gz archive.
+1. Extract the complete archive.
 2. Open a terminal in the extracted Sift directory.
-3. On Ubuntu 24.04, first verify that the operating system permits Sift's
-   analysis sandbox. The helper installs Ubuntu's official narrow bubblewrap
-   profile and does not disable the system-wide user-namespace restriction:
+3. On Ubuntu 24.04, install Sift's narrow AppArmor profile for bubblewrap:
 
      sudo ./prepare_ubuntu_host.sh
+
+   This adds an operating-system policy for Sift. It does not disable Ubuntu's
+   system-wide user-namespace protection.
 
 4. Run:
 
      ./install.sh
 
-5. Open Sift from the desktop application menu, or run ~/.local/bin/sift.
+5. Open Sift from the application menu, or run ~/.local/bin/sift.
 
-The installer is per-user and does not require administrator access. It uses
-XDG_DATA_HOME and XDG_BIN_HOME when those variables are set; otherwise it
-installs under ~/.local/share and ~/.local/bin. The Ubuntu host-policy
-preparation is separate from the application install and requires an
-administrator because it installs an operating-system AppArmor policy.
+The application installer is per-user and does not require administrator
+access. It respects XDG_DATA_HOME and XDG_BIN_HOME when they are set; otherwise
+it installs under ~/.local/share and ~/.local/bin. The Ubuntu preparation step
+is separate and needs administrator access because it installs an AppArmor
+policy.
 
-Runtime requirements
---------------------
-- A 64-bit glibc-based Linux desktop: glibc 2.35 or newer on x86_64,
-  or glibc 2.39 or newer on ARM64.
-- An X11 or Wayland desktop session.
-- bubblewrap with working unprivileged namespace confinement.
-- A running Freedesktop Secret Service-compatible credential vault.
-- The standard desktop libraries used by Qt WebEngine, including ALSA,
-  D-Bus, Fontconfig/FreeType, GBM/EGL/OpenGL, NSS/NSPR, udev, Wayland,
-  X11/XKB, and the XCB extensions. On Ubuntu, install the exact runtime
-  packages shown in the release page's Linux prerequisites before running
-  Sift. Ubuntu 24.04
-  uses the time64 package names libasound2t64, libevent-2.1-7t64, and
-  libminizip1t64 where Ubuntu 22.04 uses libasound2, libevent-2.1-7, and
-  libminizip1.
-- Qt WebEngine's NSS/NSPR and XCB-Dri3 dependencies must be present even on a
-  minimal desktop installation. Sift's release pipeline explicitly installs
-  and verifies these rather than relying on packages preloaded by a build
-  image. The same applies to libwayland-server0, which Qt WebEngine loads even
-  when Sift is qualified in a virtual X11 display.
+System requirements
+-------------------
+Sift needs an X11 or Wayland desktop session, bubblewrap with working
+unprivileged namespace confinement, and a Freedesktop Secret Service-compatible
+credential vault. It also uses the normal Qt WebEngine desktop libraries for
+audio, D-Bus, fonts, graphics, NSS/NSPR, udev, Wayland, X11/XKB, and XCB.
 
-The release pipeline builds on Ubuntu 22.04 x86_64 and reinstalls the resulting
-artifact on Ubuntu 24.04. A separate native lane qualifies the aarch64 build on
-Ubuntu 24.04 hardware. Other distributions must pass Sift's platform, renderer,
-and credential-vault checks on their native system. Sift never disables the Qt
-WebEngine sandbox to make an unsupported machine appear compatible.
+Ubuntu 24.04 uses the time64 packages libasound2t64, libevent-2.1-7t64, and
+libminizip1t64. Ubuntu 22.04 uses libasound2, libevent-2.1-7, and libminizip1.
+Minimal installations also need Qt WebEngine's NSS/NSPR, XCB-Dri3, and
+libwayland-server0 dependencies.
 
-Data, settings, and privacy
----------------------------
-- Sift includes no model account. Add your own provider API key or local model
-  endpoint from Manage providers.
-- API keys, database credentials, and remote-source credentials are stored in
-  the desktop's Secret Service vault, never in a Sift plaintext settings file.
-- Imported sessions are stored under ~/.sift-sessions. A folder opened in
-  place keeps its private Sift state in that folder's .sift directory.
-- Bounded, redacted diagnostics use $XDG_STATE_HOME/sift/log, or
-  ~/.local/state/sift/log when XDG_STATE_HOME is not set.
-- Sift does not check for updates at startup. Update access occurs only when
-  you explicitly request it.
+Release builds are checked on Ubuntu 22.04 x86_64 and reinstalled on Ubuntu
+24.04. ARM64 builds have a separate Ubuntu 24.04 qualification path. Other
+distributions should pass Sift's built-in platform, renderer, and credential
+checks before use with sensitive data. Sift does not disable the Qt WebEngine
+sandbox to accommodate an unsupported system.
 
-Institutional settings
+Your data and settings
 ----------------------
-Administrators may place an optional root-owned policy at:
+Sift does not include a model account. Connect your own provider account or
+local model from Manage providers.
+
+Credentials are stored in the desktop credential vault, not in Sift's settings
+files. Imported sessions are stored in ~/.sift-sessions. A folder opened in
+place keeps its private Sift state in that folder's .sift directory. Redacted
+diagnostic logs use $XDG_STATE_HOME/sift/log, or ~/.local/state/sift/log when
+XDG_STATE_HOME is not set. Sift contacts the update service only when you ask it
+to check for an update.
+
+Institutional policy
+--------------------
+Administrators can provide a root-owned policy file at:
 
   /etc/sift/enterprise_policy.yaml
 
-It can restrict providers, data connectors, destinations, disclosure,
-diagnostics, exports, and resource limits. An invalid configured policy fails
-closed. Ordinary users do not need this file.
+The policy can restrict model providers, data connections, disclosure,
+destinations, diagnostics, exports, and resource limits. If a configured policy
+is invalid, Sift does not start the affected operation. Most users do not need
+this file.
 
-Uninstall
----------
-Run the uninstaller retained with the installed application:
-
-  "${XDG_DATA_HOME:-$HOME/.local/share}/sift/uninstall.sh"
-
-Uninstall removes the application, launcher, desktop entry, and Sift icons.
-Research sessions, project .sift directories, diagnostics, and credential-vault
-entries are deliberately retained. Forget credentials inside Sift before
-uninstalling if you also want the corresponding secrets removed. The Ubuntu
-bubblewrap profile is also retained because it is shared operating-system
-policy, not user-owned Sift application data.
-
-Support checks
---------------
-Run:
+Troubleshooting
+---------------
+Run these checks from a desktop session:
 
   ~/.local/bin/sift --platform-check
   ~/.local/bin/sift --credential-store-check
 
-The first command verifies the renderer bindings, Secret Service integration,
-bundled assets, 64-bit runtime, and bubblewrap confinement. The second writes,
-reads, and deletes a random non-user canary in the desktop credential vault. It
-never reads or changes a provider or database credential; the desktop may ask
-the user to unlock its vault.
+The platform check covers renderer bindings, bundled assets, the 64-bit
+runtime, credential integration, and bubblewrap confinement. The credential
+check writes, reads, and removes a temporary test value in the desktop vault;
+it never reads a provider or database credential. Your desktop may ask you to
+unlock the vault.
+
+If the platform check reports missing libraries, install the named packages
+from your distribution and run it again. If it reports that bubblewrap cannot
+create a namespace on Ubuntu 24.04, run prepare_ubuntu_host.sh from the extracted
+release and repeat the check.
+
+Uninstall Sift
+--------------
+Run:
+
+  "${XDG_DATA_HOME:-$HOME/.local/share}/sift/uninstall.sh"
+
+The uninstaller removes the application, launcher, desktop entry, and icons but
+keeps research sessions, project .sift directories, logs, and credentials. Use
+Manage providers > Forget before uninstalling if you also want to remove saved
+credentials. The Ubuntu AppArmor profile remains installed because it is shared
+system policy rather than user-owned application data.
