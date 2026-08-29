@@ -1140,7 +1140,7 @@ def _render_cluster_analysis(p: dict[str, Any]) -> str | None:
 
     The "Size" column is the SDC-relevant info — small clusters
     were already suppressed by the sanitizer, but the surviving
-    cluster sizes are still load-bearing context for the model.
+    cluster sizes remain necessary context for the model.
     Centroid values are precision-clamped per-cluster by the
     sanitizer; the renderer just formats whatever survived.
 

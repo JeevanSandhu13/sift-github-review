@@ -64,7 +64,7 @@ def test_crosstab_is_supported():
 
 @given(raw=crosstab_payloads())
 def test_crosstab_never_emits_margins(raw):
-    """The load-bearing invariant: no margin field ever appears in output."""
+    """No margin field may appear in output."""
     result = sanitize(raw)
     # ``assume`` instead of silent ``return``: if a sanitizer bug
     # causes EVERY generated input to be rejected, ``return`` would

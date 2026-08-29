@@ -1759,7 +1759,7 @@ def _kill_proc_quietly(proc: Any) -> None:
 
     Fall back to ``proc.kill()`` whenever process-group termination is
     unavailable or fails (including a race between Stop and process
-    exit). This fallback is load-bearing on Windows: returning early on
+    exit). This fallback is required on Windows: returning early on
     ``AttributeError`` would leave the complete AppContainer job alive.
     """
     # Executor-owned POSIX processes carry an identity-safe descendant

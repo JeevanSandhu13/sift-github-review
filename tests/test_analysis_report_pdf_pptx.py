@@ -1,7 +1,7 @@
 """PDF and PowerPoint analysis-report exports.
 
 Both formats are built from the exact same ``_gather_report_material``
-call as the existing Markdown/HTML report, so the load-bearing
+call as the existing Markdown/HTML report, so the important
 property to test is not "does reportlab/python-pptx run" but "does
 the same session data show up in these formats the same way it shows
 up in the already-trusted Markdown/HTML report" -- findings, tables,

@@ -219,7 +219,7 @@ def test_python_partial_payloads_preserved_on_mid_script_abort(
 ) -> None:
     """A script that emits two payloads then raises must surface those
     two back to the caller — not collapse to a single execution_failed
-    with no payloads. This is the load-bearing property for the
+    with no payloads. This is the required behavior for the
     partial-success branch in submit_script.
     """
     code = (

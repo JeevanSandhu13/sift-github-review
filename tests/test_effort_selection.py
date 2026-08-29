@@ -62,7 +62,7 @@ from sift.ui import SiftBridge
 # ---------------------------------------------------------------------------
 
 def test_effort_ladder_is_cheapest_first() -> None:
-    """Order is load-bearing: the picker renders each bar in list
+    """Order matters: the picker renders each bar in list
     order, so a shuffle would put a ceiling rung next to ``low`` and
     invite a mis-click that multiplies someone's bill."""
     assert EFFORT_LEVELS == (

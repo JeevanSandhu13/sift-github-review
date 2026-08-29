@@ -891,7 +891,7 @@ def test_read_session_file_text_refuses_run_dir_script(tmp_path: Path) -> None:
 
 
 def test_read_session_file_text_refuses_script_written_cwd_file(tmp_path: Path) -> None:
-    """The load-bearing case: a cwd top-level file that was created
+    """A cwd top-level file that was created
     or modified by a ``submit_script`` run (recorded in
     ``cwd_writes.json``) is hidden from the Files panel by design
     — those bytes are already represented on the script's result

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
+import subprocess
+import sys
 
 import pandas as pd
 import pytest
@@ -10,7 +13,6 @@ from sift.performance import (
     PerformanceBudgets,
     create_representative_fixtures,
     evaluate_performance_budgets,
-    run_performance_qualification,
 )
 from sift.schema import load_data, scan_arrow_batches
 
@@ -92,9 +94,25 @@ def test_representative_fixture_and_budgeted_qualification(tmp_path: Path) -> No
     # connection, provenance, and Parquet-footer costs.  A 2,000-row extract
     # is a useful functional smoke test but is not a meaningful throughput
     # sample on slower CI/virtualized Windows hosts.
-    report = run_performance_qualification(
-        tmp_path / "qualification", rows=20_000,
+    # Run the release benchmark in a fresh interpreter. Running it after
+    # thousands of tests makes retained native allocations from unrelated
+    # libraries part of the sample and produces a machine-order-dependent
+    # memory result.
+    output = tmp_path / "qualification.json"
+    process = subprocess.run(
+        [
+            sys.executable,
+            str(Path(__file__).resolve().parents[1] / "scripts" / "performance_qualification.py"),
+            "--rows", "20000",
+            "--output", str(output),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert process.returncode == 0, report["violations"]
     assert report["status"] == "pass", report["violations"]
     assert report["measurements"]["arrow_scan"]["predicate_pushdown"] is True
     assert (

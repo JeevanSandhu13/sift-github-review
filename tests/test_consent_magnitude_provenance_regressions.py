@@ -158,7 +158,7 @@ def test_from_magnitude_table_rejects_reserved_extras_python(
     """Calling the helper with ``cells=`` (or any other reserved
     key) in ``**extra`` raises ``ValueError`` before the payload is
     written. The marker would otherwise authenticate the forged
-    cells, so this is the load-bearing defense for the helper-
+    cells, so this check enforces the helper-
     provenance contract."""
     pd = pytest.importorskip("pandas")
     del pd  # only used as availability gate

@@ -69,7 +69,7 @@ PROVIDER_API_KEY_URLS: dict[str, str] = {
 # opt-in (the CLI strips it and sets the beta header; ``fable[1m]``
 # is a built-in CLI alias, so the suffix parses generically). On the
 # Claude 5 models 1M is both the default and the maximum, so the
-# suffix is belt-and-braces rather than load-bearing — kept so every
+# suffix is redundant but retained so every
 # Anthropic id in the catalog follows one convention and per-session
 # model memory (which restores only catalog-known ids) stays stable.
 # There's no pricing tier on context length: a 900k-token request

@@ -22,8 +22,8 @@ Install Sift
 
 The portable download is an alternative for systems where software is deployed
 without an installer. Extract the entire Sift-Windows-x64.zip archive to a
-writable local folder, then run Sift.exe. Keep Sift.exe beside the _internal
-folder; the application will not run if those files are separated.
+writable local folder, then run Sift.exe. Do not copy Sift.exe out of its folder;
+the adjacent _internal directory contains required application files.
 
 Your data and settings
 ----------------------
@@ -66,7 +66,7 @@ Manager.
 
 Uninstall Sift
 --------------
-Open Settings > Apps > Installed apps, find Sift, and select Uninstall. The
+Open Windows Settings > Apps > Installed apps, find Sift, and select Uninstall. The
 uninstaller removes the application and shortcuts but keeps research sessions,
 project .sift directories, logs, and credentials. Use Manage providers > Forget
 before uninstalling, or remove Sift entries from Windows Credential Manager, if

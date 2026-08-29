@@ -474,9 +474,9 @@ _OLS_DICT_FIELDS_INT_COUNTS: frozenset[str] = frozenset((
 # negative binomial / Cox PH / fixest / 2SLS — anything that emits a
 # coefficient table with associated fit statistics. The original
 # name ``linear_regression`` misled both readers and the model into
-# thinking the scope was OLS-only (see the audit arc that found
-# Cox hard-failing through the helper and GLMs shipping no fit
-# metrics). The descriptive name ``coefficient_table_with_fit_stats``
+# thinking the scope was OLS-only. That assumption caused Cox to fail
+# in the helper and caused GLMs to omit fit metrics. The descriptive
+# name ``coefficient_table_with_fit_stats``
 # is the new canonical; ``linear_regression`` is kept as an alias
 # so payloads from older sessions, older helpers, and the existing
 # SQLite stores on researcher disks still sanitize and render.
@@ -3809,7 +3809,7 @@ def _sanitize_correlation_matrix(
 # same way. ``n_treated_per_group`` outer keys must equal ``groups``.
 
 # Required structural fields. ``att`` and ``n_treated_per_group``
-# are load-bearing — without the latter the cohort-N gate has no
+# are required — without the latter the cohort-N gate has no
 # input and SDC degenerates to "trust the script". The aggregate
 # ATT block is optional (a study might only report the matrix).
 _DID_EVENT_REQUIRED: frozenset[str] = frozenset((
@@ -5239,7 +5239,7 @@ def _sanitize_factor_decomposition(
     # keys the model reads directly. A rejected entry here fails the
     # whole payload (rather than silently dropping just that variable,
     # the way ``correlation_matrix`` handles the same gate) because
-    # ``safe_vars`` is positionally load-bearing for every per-variable
+    # ``safe_vars`` is positionally coupled to every per-variable
     # row built below -- filtering it independently of the raw
     # ``loadings`` structure would reopen the declared/undeclared
     # misalignment class of bug the crosstab/correlation_matrix code

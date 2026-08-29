@@ -6,8 +6,8 @@ The behavior pinned here:
    validated entry so downstream consumers can re-validate the
    token against the per-run registry. The validated rewrite is
    fail-soft — if the no-follow write is blocked, the original
-   manifest stays on disk and the downstream re-validation is the
-   load-bearing protection. (An earlier iteration also added an
+   manifest stays on disk and downstream re-validation remains the
+   security boundary. (An earlier iteration also added an
    unlink/rename cascade with a ``PlotManifestUnsanitizable``
    exception, but that proved redundant with the consumer-side
    re-validation and conflicted with the contract that the

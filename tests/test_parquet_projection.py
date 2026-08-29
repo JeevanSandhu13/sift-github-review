@@ -8,7 +8,7 @@ needed column(s) against the file's own schema (metadata only, no row
 data read) so ``load_data`` can request just those columns from
 pyarrow.
 
-The load-bearing property under test isn't the performance win itself
+The property under test is not the performance win itself
 (hard to assert from a unit test) but that projection can NEVER change
 what ``handle()`` returns or which requests it denies — every case
 here compares the projected path's result against the same computation

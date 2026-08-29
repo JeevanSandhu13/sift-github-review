@@ -19,7 +19,7 @@ Three combinations of buffer state matter:
   * ``user_stderr`` has a traceback whose deepest frame is in
     researcher-authored script.py lines: body redacted.
 
-Buffer-split is the load-bearing invariant. The classifier never
+The buffer split enforces the invariant. The classifier never
 infers phase from text shape — a segfault during user code that
 prints to stderr before dying produces no traceback, but its
 bytes land in ``user_stderr`` and are NOT forwarded as if they

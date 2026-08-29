@@ -5146,7 +5146,7 @@ async def read_attached_file(args: dict[str, Any]) -> dict[str, Any]:
             # exists and roughly how big the gap is.
             #
             # Why not head-only: scripts of interest almost always
-            # have load-bearing content at the END (df.to_parquet,
+            # have important content at the end (df.to_parquet,
             # save, write_dta, the main entry). Head-only truncation
             # hides that and forces the model to either guess or ask
             # the researcher.

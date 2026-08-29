@@ -93,9 +93,10 @@ execution disabled. See [Security policy](../SECURITY.md) and
 
 Sift 0.1 is a public beta:
 
-- macOS: signed and notarized for Apple silicon
-- Windows: unsigned x64 beta
-- Linux: x86_64 and ARM64 beta archives
+- macOS: signed and notarized for Apple silicon (`Sift.dmg`)
+- Windows: unsigned x64 installer (`Sift-Windows-x64-Setup.exe`)
+- Linux x86_64: `Sift-Linux-x86_64.tar.gz`
+- Linux ARM64: `Sift-Linux-aarch64.tar.gz`
 
 Start with [Installing Sift](install.md). The broader motivation and design are
 described in

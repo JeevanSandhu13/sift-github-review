@@ -7,7 +7,7 @@ CSVs is a tool those researchers cannot use for their real work.
 
 The architectural problem
 -------------------------
-Sift's sandbox denies network access, and that denial is load-bearing:
+Sift's sandbox denies network access; this is a core security boundary:
 it is why generated code cannot exfiltrate data. A connector needs a
 network. Naively, the two requirements are in direct conflict, and the
 tempting resolutions are both wrong — punching a hole in the sandbox

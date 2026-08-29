@@ -66,7 +66,7 @@ def test_profile_deletion_retries_the_documented_undetermined_state(
 
 
 def test_capability_sids_is_empty() -> None:
-    """The single load-bearing design decision behind "no network":
+    """The central design decision behind "no network":
     zero capabilities granted, ever. A future contributor adding a
     capability here (e.g. to fix some feature request) would silently
     reopen network/device access for every future script -- this test

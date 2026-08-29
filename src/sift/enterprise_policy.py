@@ -618,7 +618,7 @@ def load_enterprise_policy() -> EnterprisePolicy | None:
 
 # ---------------------------------------------------------------------------
 # Combinators — every function here returns a value AT LEAST as
-# restrictive as its session-derived input. This is the load-bearing
+# restrictive as its session-derived input. This is the central
 # security property of the whole module.
 # ---------------------------------------------------------------------------
 

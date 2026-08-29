@@ -3,7 +3,7 @@
 A checkpoint is a *non-destructive* bookmark: "at turn N, these
 result_ids were the model-visible analysis so far." Creating one
 touches nothing else — no chat history truncation, no result-store
-mutation. That's the load-bearing difference from ``rewind_to``
+mutation. That distinction separates it from ``rewind_to``
 (``ui.py``), which is destructive: it truncates ``chat_history.jsonl``
 and hides every result row the truncated prefix no longer references.
 

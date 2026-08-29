@@ -104,7 +104,7 @@ def test_magnitude_table_is_supported():
 
 @given(raw=magnitude_payloads())
 def test_max_share_never_emitted(raw):
-    """The load-bearing privacy property."""
+    """The maximum share must never be disclosed."""
     r = sanitize(raw)
     # ``assume`` instead of silent ``return``: a sanitizer regression
     # that rejected every generated input would otherwise leave this

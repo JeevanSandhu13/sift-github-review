@@ -213,7 +213,7 @@ def test_script_oversize_is_head_and_tail_truncated_with_marker(
     the first half of the byte budget is the start of the file, the
     second half is the end, and an elision marker names the gap.
 
-    The tail is the load-bearing property — it's where save calls
+    The tail is essential because it is where save calls
     (``df.to_parquet``, ``write_dta``, ``saveRDS``) live, and the
     answer to "did this script write the dataset out" is invisible
     under head-only truncation.

@@ -191,7 +191,7 @@ def _memory_limit_preexec():
     def _apply() -> None:
         # Never raise out of preexec_fn: an exception here kills the
         # child with an opaque error. Best-effort by design — the
-        # sandbox and timeout remain the load-bearing controls.
+        # sandbox and timeout remain the primary controls.
         try:
             soft, hard = resource.getrlimit(resource.RLIMIT_AS)
             new_soft = limit if hard in (resource.RLIM_INFINITY,) else min(limit, hard)
@@ -604,7 +604,7 @@ def _process_tree_cpu_seconds(
                 # deliberately oversized raw buffer is ABI-safe; every
                 # rusage_info flavor begins with UUID + user/system absolute
                 # time.  Darwin reports Mach ticks, not nanoseconds; conversion
-                # through mach_timebase_info below is load-bearing on Apple
+                # through mach_timebase_info below is required on Apple
                 # Silicon, where one tick is currently much larger than 1 ns.
                 usage = ctypes.create_string_buffer(1024)
                 if libproc.proc_pid_rusage(
@@ -1291,7 +1291,7 @@ def get_run_token(run_dir: Path) -> str | None:
 # failed rewrite still gets dropped at consumer time. The cascade
 # also conflicted with the test contract that the original manifest
 # stays on disk when the rewrite is blocked. The downstream
-# re-validation is the load-bearing protection.
+# re-validation is the security boundary.
 
 
 def _filter_plot_manifest(run_dir: Path, run_token: str) -> int:
@@ -1376,7 +1376,7 @@ def _filter_plot_manifest(run_dir: Path, run_token: str) -> int:
     # re-validate the ``_token`` field per entry via the run-token
     # registry, so a forged entry can't smuggle through the failed
     # rewrite. The rewrite is just an optimization to keep the
-    # on-disk manifest small; the load-bearing security gate is
+    # on-disk manifest small; the security gate is
     # consumer-side token re-validation.
     #
     # Fail-soft rewrite. If the no-follow write fails (symlink
@@ -2865,7 +2865,7 @@ def run_script(
     # Register the per-run token so the runner's ``_capture_plots``
     # can re-validate manifest entries directly. The on-disk filter
     # above is a best-effort optimization (smaller manifest); the
-    # runner-side validation is the load-bearing one because the
+    # runner-side validation is authoritative because the
     # manifest lives in script-writable territory and the rewrite
     # CAN fail without the token validation getting a second chance.
     register_run_token(run_dir, run_token)
@@ -3133,7 +3133,7 @@ def _write_script(run_dir: Path, language: Language, code: str) -> Path:
         py_tool = find_python()
 
         # Two-buffer stderr split. The fd-level swap below is the
-        # load-bearing SDC invariant for phase-aware redaction:
+        # core SDC invariant for phase-aware redaction:
         #
         #   Phase 0 (subprocess.PIPE stderr): everything that lands
         #     on fd 2 BEFORE the preamble's first dup2 runs. That's
@@ -3417,7 +3417,7 @@ def _split_stderr_buffers(
 # Linux confinement — bubblewrap
 # ---------------------------------------------------------------------------
 #
-# Same threat model and the same load-bearing role as
+# Same threat model and enforcement role as
 # ``_build_profile``'s SBPL text on macOS: a script running here must
 # not be able to read the researcher's files outside the analysis
 # workspace, must not be able to reach the network at all, and must
@@ -3466,7 +3466,7 @@ def _bwrap_argv(
     """
     args: list[str] = [
         # Unshares user, ipc, pid, net, uts, and cgroup namespaces in
-        # one flag. The net unshare is the load-bearing one for the
+        # one flag. The network namespace is essential to the
         # data-boundary story — with no network namespace at all, the
         # child has no interface to bind or connect from, which is a
         # stronger guarantee than a firewall rule (nothing to
@@ -3672,12 +3672,12 @@ def _write_sandbox_profile(
     ``~/.ssh``, ``~/.aws``, ``~/.gnupg``, Keychains — is denied.
     Network is denied entirely.
 
-    This profile is the load-bearing enforcement of the data-boundary
-    story. Without it, a malicious script could read arbitrary files
-    and smuggle their contents out through ``label`` / coefficient-name
+    This profile enforces the data boundary. Without it, a malicious
+    script could read arbitrary files and smuggle their contents out
+    through ``label`` / coefficient-name
     fields in the result payload; with it, the script can only see
     ``cwd``, and the runtime-library-only I/O convention plus the
-    sanitizer allowlist become the only paths to Claude's context.
+    sanitizer allowlist become the only paths to the model context.
 
     Notes on specific SBPL details:
 
@@ -3863,7 +3863,7 @@ def _build_profile(
         "(version 1)\n"
         "(deny default)\n"
         "\n"
-        "; Network — load-bearing. Scripts cannot exfiltrate data off-box.\n"
+        "; Network denied. Scripts cannot exfiltrate data off-box.\n"
         "(deny network*)\n"
         "\n"
         "; Process / IPC / signal operations R and Stata expect.\n"

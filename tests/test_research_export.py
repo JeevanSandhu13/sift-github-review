@@ -1,6 +1,6 @@
 """Research exports — LaTeX tables, replication packages, disclosure reports.
 
-The load-bearing properties:
+Security properties:
 
 1. LaTeX escaping is safe by default. Data-origin text is escaped;
    only explicitly-marked Sift-authored markup passes through raw.

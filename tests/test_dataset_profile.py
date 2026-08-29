@@ -36,7 +36,7 @@ def _write_csv(tmp_path: Path, pd) -> Path:
 
 
 # --------------------------------------------------------------------
-# Privacy separation — the load-bearing property
+# Privacy separation
 # --------------------------------------------------------------------
 
 def test_profile_is_not_reachable_from_any_tool() -> None:

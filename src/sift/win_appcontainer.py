@@ -542,7 +542,7 @@ def plan_capability_sids() -> tuple[str, ...]:
     the microphone/webcam/location/contacts/etc., and cannot access
     removable storage — every one of those requires an explicit
     capability SID that this function never includes. This is the
-    single load-bearing design decision behind guarantee (1) in the
+    central design decision behind guarantee (1) in the
     module docstring: rather than trying to enumerate and deny every
     capability individually (an allowlist-shaped mistake that's one
     missed entry away from a hole), grant literally none and let
@@ -1730,7 +1730,7 @@ def spawn_in_appcontainer(
       5. ``ResumeThread`` — only now does the interpreter actually
          start executing.
 
-    Step 3-4-5 ordering is the load-bearing part of this function:
+    Steps 3-4-5 must remain in this order:
     reversing steps 4 and 5 (resume before assign) would mean the
     confinement's resource-limit half doesn't apply for however long
     it takes the parent process to make the ``AssignProcessToJobObject``

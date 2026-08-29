@@ -132,7 +132,7 @@ _MIN_CLUSTER_SIZE = 10       # clusters smaller than this are fragile
 def _num(payload: dict[str, Any], key: str) -> float | None:
     """Return a finite numeric field, else None.
 
-    Three rejections, each load-bearing:
+    Three values must be rejected:
 
     - **Booleans.** ``isinstance(True, int)`` is True in Python, so an
       unguarded read would treat a flag as the number 1.

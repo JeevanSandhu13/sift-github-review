@@ -151,7 +151,7 @@ def test_memory_limit_defaults_and_overrides(monkeypatch) -> None:
     reason="RLIMIT_AS is unavailable or non-binding on macOS",
 )
 def test_limit_actually_binds_a_child_process(monkeypatch) -> None:
-    """The load-bearing assertion: an over-limit allocation fails as a
+    """An over-limit allocation fails as a
     catchable MemoryError inside the script, rather than the OS
     OOM-killing the whole app."""
     monkeypatch.setenv("SIFT_SCRIPT_MAX_MEMORY_BYTES", str(256 * 1024 * 1024))

@@ -86,7 +86,7 @@ def test_att_cannot_be_empty_after_cross_field_filtering() -> None:
 def test_small_cohort_is_dropped_whole_not_per_cell() -> None:
     """The cohort-N gate suppresses the ENTIRE cohort. Partial-cell
     publication would leak the cohort size through which cells
-    survived — this is the load-bearing privacy property of the
+    survived — this is the central privacy property of the
     new SDC primitive."""
     res = sanitize(_well_formed_payload())
     s = res.sanitized

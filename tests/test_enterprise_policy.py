@@ -4,7 +4,7 @@ researcher policy.
 The property this whole module exists to guarantee is one-directional
 combination: every function that mixes a session-derived value with
 an enterprise value must return something AT LEAST as restrictive as
-the session value alone. That's the load-bearing invariant tested
+the session value alone. That is the central invariant tested
 here, plus the absence/malformation/well-formed three-way load split
 that mirrors ``policy.py``'s own established behaviour, plus the
 integration points in ``tools.py`` (schema depth ceiling, banned

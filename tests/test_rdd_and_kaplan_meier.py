@@ -1,5 +1,5 @@
-"""Tests for the new ``rdd`` and ``kaplan_meier`` shapes, including
-the load-bearing privacy carve-outs.
+"""Tests for the ``rdd`` and ``kaplan_meier`` shapes, including
+their privacy-specific rules.
 
 For RDD the carve-out is *structural*: the McCrary density curve
 and binscatter bin coordinates are not in the allowlist, so even a

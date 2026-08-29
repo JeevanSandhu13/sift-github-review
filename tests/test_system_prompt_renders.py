@@ -441,7 +441,7 @@ def test_partial_failure_semantics_documented(tmp_path: Path) -> None:
     rendered = build_system_prompt(tmp_path, "sift")
     assert "execution_failed_partial" in rendered
     assert "On partial failure" in rendered
-    # The load-bearing line: partials in the response are real
+    # Partials in the response are real
     # results, not retry candidates. Phrasing was previously
     # "Do NOT re-run the helpers that already succeeded"; the
     # current prompt expresses the same constraint as a positive

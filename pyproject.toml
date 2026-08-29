@@ -283,7 +283,7 @@ dev = [
     # ``tests/test_from_factor_analyzer_real_fits.py`` start failing with
     # ``TypeError: check_array() got an unexpected keyword argument
     # 'force_all_finite'`` — the FA helper goes silent rather than
-    # surfacing a clean error, so this guard is load-bearing.
+    # surfacing a clean error, so this version guard is required.
     "scikit-learn>=1.5,<1.7",
     # Sun-Abraham IW event study, used by ``tests/test_from_sun_abraham_real_fits.py``.
     # pyfixest mirrors R fixest's ``sunab()`` API (Borusyak-Jaravel-Spiess

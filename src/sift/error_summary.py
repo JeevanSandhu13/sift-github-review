@@ -160,7 +160,7 @@ MAX_FORWARDED_BODY_BYTES = 200
 # ``pmin(a``, fixest formulas like ``i(x)``). Hyphen is excluded
 # because a token with a hyphen is usually a date or a number
 # (``2026-01-01``). The required-leading-letter-or-underscore is
-# load-bearing: it forces token to LOOK like a name, so pure
+# important: it forces token to look like a name, so pure
 # numeric tokens (``12345``, ``3.14``) and quoted strings (``"v"``)
 # still fail the shape check and the row stays flagged.
 _JSON_DICT_RE = re.compile(r'\{[^{}\n]*:[^{}\n]*\}')
@@ -231,8 +231,8 @@ def extract_debug_excerpt(
       * ``pre_user_stderr`` is what came through before user code
         ran (phase 0 + phase A in ``executor._split_stderr_buffers``).
         By construction these bytes can't contain researcher data,
-        so they're forwarded unredacted. This is the load-bearing
-        invariant: it's enforced at the kernel level via the
+        so they're forwarded unredacted. This boundary is enforced at
+        the kernel level via the
         preamble's ``dup2``, NOT inferred from text shape. A
         segfault during user code that wrote to stderr beforehand
         used to look like ``pre_script`` to a traceback-based

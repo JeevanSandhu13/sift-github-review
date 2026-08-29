@@ -1352,6 +1352,6 @@ def _python_prefixes(binary: str) -> tuple[str, ...]:
     if out.returncode != 0:
         return ()
     lines = [ln.strip() for ln in (out.stdout or "").splitlines() if ln.strip()]
-    # Canonicalization is load-bearing for bubblewrap/SBPL, both of which
+    # Canonicalization is required for bubblewrap/SBPL, both of which
     # require unambiguous absolute roots. Dedupe preserves prefix order.
     return _existing_roots(*lines)

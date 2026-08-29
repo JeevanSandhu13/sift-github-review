@@ -5,8 +5,8 @@ The ``kaplan_meier`` shape has 16 property tests
 (``tests/test_rdd_and_kaplan_meier.py``) that pin the sanitizer's
 behavior on hand-crafted payloads, but until this module the
 helpers themselves were unverified against real survival fits.
-Building these helpers IS the missing real-fit verification — same
-pattern as the earlier ``from_lm`` audit arc where mocked-fit
+These helpers provide the missing real-fit verification, following the
+earlier ``from_lm`` case where mocked-fit
 tests masked the Cox hard-failure mode.
 
 Each language gets a smoke + per-horizon-emission test:

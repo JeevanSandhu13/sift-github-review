@@ -381,7 +381,7 @@ def test_manifest_round_trips_through_disk(tmp_path: Path) -> None:
     assert data["version"] == 2
     names_in_entries = sorted(e["name"] for e in data["entries"])
     assert names_in_entries == ["a.py", "b.r"]
-    # Each entry carries a sha256 + size — the load-bearing v2
+    # Each entry carries a sha256 and size, the key v2
     # additions over v1.
     for entry in data["entries"]:
         assert isinstance(entry.get("sha256"), str)

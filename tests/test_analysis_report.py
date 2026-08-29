@@ -3,7 +3,7 @@
 The report's promise is threefold: everything in it comes from stored
 sanitized material, warnings are surfaced rather than buried, and the
 only figures it embeds are ones already cleared for sharing. The
-figure allowlist is the load-bearing test — a report that embedded
+figure allowlist is the critical test: a report that embedded
 raw-data plots would be a disclosure channel dressed as a feature.
 """
 

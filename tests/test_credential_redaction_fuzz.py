@@ -24,16 +24,17 @@ def test_uri_credentials_are_redacted_for_generated_connection_strings(
     host: str,
     database: str,
 ) -> None:
-    assume(password not in user)
-    assume(password not in host)
-    assume(password not in database)
+    secret = f"sift-secret-{password}"
+    assume(secret not in user)
+    assume(secret not in host)
+    assume(secret not in database)
     uri = (
-        f"postgresql+psycopg://{quote(user, safe='')}:{quote(password, safe='')}"
+        f"postgresql+psycopg://{quote(user, safe='')}:{quote(secret, safe='')}"
         f"@{host}/{quote(database, safe='')}?sslmode=verify-full"
     )
     shown = redact_connection(uri)
-    assert password not in shown
-    assert quote(password, safe="") not in shown
+    assert secret not in shown
+    assert quote(secret, safe="") not in shown
     assert "***" in shown
 
 
