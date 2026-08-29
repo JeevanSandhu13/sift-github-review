@@ -93,6 +93,10 @@ jobs:
       - name: Verify connector drivers
         run: uv run python packaging/verify_database_drivers.py
 
+      - name: Verify repeated Windows sandbox execution
+        if: matrix.platform == 'windows'
+        run: uv run pytest -q tests/test_source_dataset_ledger.py -vv
+
       - name: Run the complete automated suite
         run: uv run pytest -q
 

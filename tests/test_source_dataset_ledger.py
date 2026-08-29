@@ -1,21 +1,9 @@
-"""Regression test for the submit_script "source_dataset" ledger blind
-spot (architecture audit finding E).
+"""End-to-end checks for source-dataset disclosure accounting.
 
-Before the fix, a submit_script result's response JSON never carried
-a "source_dataset" key anywhere (the store row got it via
-``store.insert(source_dataset=...)``, but the outward-facing
-``result_entry`` dict fed to the model — and hashed/fact-extracted
-into the release ledger — did not). ``privacy_budget.py``'s
-per-dataset adaptive-suppression accounting and ``query_fingerprint.
-py``'s repeated-query detection both key off exactly this field being
-present in the ledger's recorded facts, so both silently saw ZERO
-submit_script consumption against any dataset, no matter how many
-granted releases actually happened — for the single most disclosure-
-heavy tool in the system.
-
-This test exercises the real ``submit_script`` handler end-to-end
-(not a synthetic ledger record) and checks the fix holds all the way
-through: response shape, ledger facts, and both downstream consumers.
+Every released script result must retain its source-dataset identity so
+privacy-budget and repeated-query checks can account for it. These tests use
+the public ``submit_script`` handler and verify the response, ledger, and both
+downstream consumers together.
 """
 
 from __future__ import annotations
@@ -104,7 +92,7 @@ def test_submit_script_source_dataset_reaches_privacy_budget_and_fingerprint(
     df.to_csv(src, index=False)
 
     code = "import sift\nsift.from_summarize('x', n=10, mean=1.0, sd=0.1, missing_count=0)\n"
-    for _ in range(3):
+    for attempt in range(3):
         response = asyncio.run(submit_script.handler({
             "language": "Python",
             "code": code,
@@ -112,7 +100,9 @@ def test_submit_script_source_dataset_reaches_privacy_budget_and_fingerprint(
             "source_dataset": "tiny.csv",
         }))
         body = _text_payload(response)
-        assert body["status"] == "ok"
+        assert body["status"] == "ok", (
+            f"execution {attempt + 1} failed: {body!r}"
+        )
 
     records = read_ledger(tmp_path)
     consumed = consumed_for_dataset(records, "tiny.csv")
