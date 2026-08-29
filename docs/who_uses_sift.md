@@ -1,53 +1,65 @@
 # Who Sift is for
 
-Sift is designed for researchers and analysts who want model-assisted analysis
-without directly uploading raw datasets to a model provider. It is most useful
-when data is confidential, regulated, contractually restricted, proprietary,
-or simply too sensitive for a general-purpose chat interface.
+Sift is for researchers and analysts who want help from a capable model but
+cannot treat a confidential dataset as ordinary chat input.
 
-## Representative settings
+The common requirement is not a particular profession. It is the need to keep
+source records and computation inside a trusted local environment while still
+using a model to plan, write, and interpret an analysis.
 
-- Health and clinical research: observational studies, outcomes research,
+## Research and organizational settings
+
+Sift is designed for work such as:
+
+- **Health and clinical research:** observational studies, outcomes research,
   epidemiology, quality improvement, and trial-support analysis.
-- Social science and public policy: surveys, administrative records, panels,
-  program evaluation, and causal-inference workflows.
-- Education: student outcomes, institutional research, assessment, and learning
-  analytics.
-- Government and nonprofit research: census, labor, health, housing,
-  humanitarian, and monitoring-and-evaluation data.
-- Regulated and proprietary industry work: financial risk, insurance, people
-  analytics, manufacturing quality, market research, and operational data.
-- Confidential qualitative work: documents and free-text fields where local
-  extraction and tightly bounded summaries are appropriate.
+- **Social science and public policy:** surveys, administrative records,
+  panels, program evaluation, and causal inference.
+- **Education:** student outcomes, institutional research, assessment, and
+  learning analytics.
+- **Government and nonprofit research:** labour, housing, health,
+  humanitarian, census, and monitoring-and-evaluation data.
+- **Regulated or proprietary analysis:** finance, insurance, workforce,
+  manufacturing, customer, market, risk, and operational data.
+- **Confidential text and mixed-method work:** local extraction followed by
+  deliberately bounded summaries.
 
-These examples describe possible uses, not automatic compliance with a law,
-contract, ethics protocol, or institutional policy. The organization and
-researcher remain responsible for authorizing the selected data, model
-provider, endpoint, and analysis.
+These examples do not establish compliance with a law, contract, ethics
+protocol, or institutional policy. The researcher and organization remain
+responsible for authorizing the dataset, model provider, endpoint, analysis,
+and disclosure settings.
 
-## Common workflows
+## What a typical workflow looks like
 
-Sift supports source files commonly used by researchers, including CSV, Excel,
-Stata, SPSS, SAS, R, Parquet, and line-delimited JSON. It can also materialize
-reviewed, read-only extracts from local databases, database servers, cloud
-warehouses, and approved object-storage sources.
+A researcher might use Sift to:
 
-Typical workflows include:
+1. profile a dataset and inspect its quality without exposing rows to a model;
+2. develop an analysis in Python, R, or licensed Stata under native
+   operating-system confinement;
+3. review statistical checks alongside the model's interpretation;
+4. compare alternative specifications without losing the analytical record;
+5. produce a codebook, report, disclosure record, AI-use statement, or
+   replication package from the stored session.
 
-1. Inspect a dataset's schema and quality without exposing rows to the model.
-2. Develop and execute an analysis in Python, R, or licensed Stata under native
-   OS confinement.
-3. Review deterministic statistical checks alongside the model's explanation.
-4. Challenge a finding with alternative specifications and compare results.
-5. Export codebooks, disclosure records, reports, and replication materials
-   from the stored local session.
+Sift works with ordinary files as well as user-approved, read-only extracts
+from databases, warehouses, object stores, and research services. In every
+case, the selected material is brought into the local workspace before
+analysis.
 
-## When Sift is not the right tool
+## When to choose something else
 
-Sift is not appropriate when a policy forbids any external model use, when the
-selected provider is considered deliberately malicious, or when raw records
-must be sent to a remote model. It also does not replace domain review,
-statistical judgment, ethics approval, or independent security assessment.
+Sift is not the right tool when:
 
-See [the architecture](architecture.md), [security model](security_threat_model.json),
-and [verification guide](verification.md) for the exact guarantees and limits.
+- policy prohibits any external model use, including sanitized results;
+- the selected provider is considered deliberately malicious;
+- a workflow requires sending raw records to a remote model;
+- the task depends on a method or data format that has not been reviewed for
+  the current release;
+- the work requires a compliance certification that Sift does not hold.
+
+Sift also does not replace statistical judgment, domain review, ethics
+approval, data-governance review, or independent security assessment.
+
+Read [Sift overview](overview.md) for the workflow,
+[Architecture](architecture.md) for the enforced boundary, and
+[Security policy](../SECURITY.md) for the documented limitations.

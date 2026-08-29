@@ -1,92 +1,102 @@
 # Sift overview
 
-Plain-language description of what Sift is and how it works.
-Current version: **0.1.0** (August 2026).
+Sift is a desktop research assistant for working with sensitive data. It gives
+a researcher access to model-assisted analysis without giving the model direct
+access to the underlying dataset.
 
-## What Sift is
+The application runs on macOS, Windows, and Linux. Data remains in a local
+workspace, analysis code runs on the researcher's computer, and only
+policy-approved statistical results can return to the selected model.
 
-Sift is a macOS, Windows, and Linux app that sits on a researcher's own computer and
-lets them use an AI assistant to analyze sensitive data without
-sending that data to any third party. Medical records, HR data,
-survey responses, IRB-restricted research. The data stays on the
-researcher's machine.
+## The problem
 
-The problem it solves. AI assistants are useful for data analysis,
-but using one normally means uploading the data or describing it
-in detail. Both expose the data. Researchers with confidential
-datasets often can't do that, legally or ethically. Sift is a
-thin local layer that lets the assistant help with the analysis
-while the actual values stay on disk.
+Clinical records, survey responses, administrative data, student outcomes,
+financial histories, and proprietary business data are often governed by
+ethics approvals, contracts, law, or institutional policy. Uploading those
+records to a general-purpose model may be prohibited or unnecessary.
 
-## How it works
+At the same time, a capable model can help frame a question, choose an
+analysis, write code, interpret diagnostics, and challenge a result. Sift is
+designed to separate that reasoning work from unrestricted access to the data.
 
-The researcher drags data files into Sift's window, points it at a directory,
-or imports a reviewed result from a database, cloud store, or research service.
-The in-app source catalog shows the supported file formats and connectors.
+## A Sift session
 
-A chat starts inside Sift. The researcher can use Anthropic, OpenAI, Gemini,
-an approved enterprise-cloud model, or an OpenAI-compatible endpoint using
-their own account. The model has no filesystem access,
-no shell, no network. It reaches the data only through a narrow
-set of operations: ask about the schema, submit an R / Stata /
-Python script, read sanitized results, compose multiple results
-into a comparison table.
+1. **The researcher selects the data.** Sift opens local files and folders or
+   materializes a user-approved extract from a database, cloud store, or
+   research service.
+2. **Sift profiles it locally.** The application records structure, variable
+   types, missingness, ranges, and likely identifiers.
+3. **The researcher sets the permission level.** This determines which schema
+   fields and bounded summaries may enter model context.
+4. **The model proposes and writes the analysis.** It works through a fixed
+   Sift tool set rather than a general shell, filesystem, database, or web
+   interface.
+5. **The script runs beside the data.** macOS uses a deny-by-default sandbox,
+   Windows uses AppContainer, and Linux uses Bubblewrap. Network access is
+   denied and filesystem access is restricted.
+6. **Sift reviews the result before disclosure.** The output must match a
+   registered statistical shape and pass suppression, precision, dominance,
+   size, and text-safety checks.
 
-When the model submits a script, Sift runs it locally in a
-sandbox. The sandbox blocks network access and restricts which
-files the script can read (the researcher's data directory plus
-the paths R, Stata, or Python need to start up). The script's
-output then passes through a sanitizer that applies statistical
-disclosure control rules. It rounds coefficients based on sample
-size, suppresses cells with fewer than 10 observations, never
-reveals individual observations like min or max, and never
-forwards raw text values from the data.
+The researcher can inspect the raw data, complete local output, generated code,
+plots, verification results, and disclosure history. The model receives the
+researcher's messages, the permitted schema, sanitized statistical results,
+approved aggregate figures, and redacted errors.
 
-## What you see vs what the model sees
+## Models and credentials
 
-The researcher sees the full raw script output in the chat
-window, in a result panel under each script run. The model sees
-only the sanitized version.
+Sift can use Anthropic, OpenAI, Gemini, selected enterprise model deployments,
+and OpenAI-compatible local or remote endpoints. The researcher supplies and
+pays for the chosen account. Sift does not operate a model service.
 
-Conversations persist across restarts. Every turn is saved to a
-per-session log on disk. When the researcher reopens, the recent
-turns plus a list of stored analytical results are loaded back
-so the conversation picks up where it left off. Older turns that
-have fallen out of that window can be retrieved on demand.
+Credentials are stored in macOS Keychain, Windows Credential Manager, or a
+Freedesktop Secret Service-compatible vault. They are not placed in the model
+prompt, generated-code environment, or a plaintext Sift settings file.
 
-## The privacy guarantee
+## Data and methods
 
-The model never directly touches the data. It writes questions
-about the data (as code) and gets back privacy-filtered answers.
-The boundary is enforced by three independent layers:
+Common research formats include CSV, Excel, Stata, SPSS, SAS, R, Parquet,
+Arrow, ORC, and JSON. Optional format packs cover scientific, geospatial,
+clinical, and genomic data. Sift can also create read-only local extracts from
+major relational databases, warehouses, object stores, and research
+repositories.
 
-1. **The tool interface.** No filesystem, no shell, no network.
-2. **The sandbox.** Native fail-closed confinement on macOS, Windows, and
-   Linux; network denied and file reads restricted to the researcher's data
-   directory and the runtime's startup paths.
-3. **The sanitizer.** Statistical disclosure rules applied to
-   every output before the model sees it.
+The maintained method library covers descriptive and inferential statistics,
+regression, longitudinal and mixed models, survival analysis, survey
+estimation, missing data, time series, prediction, measurement, Bayesian
+workflows, study design, and causal inference. Deterministic checks accompany
+results so missing diagnostics and fragile assumptions are visible rather than
+silently treated as passed.
 
-## Install and run
+## Records and outputs
 
-Choose the native production artifact for the computer: `Sift.dmg` on Apple
-silicon macOS, `Sift-Windows-x64-Setup.exe` on 64-bit Windows 11,
-`Sift-Linux-x86_64.tar.gz` on x86_64 Linux, or
-`Sift-Linux-aarch64.tar.gz` on ARM64 Linux. Follow
-[`docs/install.md`](install.md); it includes prerequisites, platform checks,
-upgrades, and uninstall behavior.
+The local session preserves the analysis plan, scripts, results, verification
+verdicts, source provenance, model usage, and each disclosure made to the
+model. Sift can turn that record into reports, codebooks, governance summaries,
+AI-use statements, and replication packages that exclude the raw data.
 
-First launch asks for the researcher's own model credential or local endpoint.
-Secrets are stored in macOS Keychain, Windows Credential Manager, or a
-Freedesktop Secret Service-compatible vault. The maintained Python analysis
-runtime is bundled. R and licensed Stata are optional and are needed only when
-the researcher explicitly chooses to run code in those languages; importing
-their data formats does not require either product.
+## The boundary and its limit
 
-## Where to read more
+Sift's controls are designed for accidental disclosure, ordinary model errors,
+and data-origin prompt injection. The current generated-code runtime is not a
+defence against a model provider that is deliberately trying to encode raw
+values into an aggregate-shaped result. Generated code and Sift's result
+helpers share an interpreter, so the application cannot cryptographically
+attest the meaning of every calculation.
 
-For implementation details, the supported analysis shapes, and
-the contributor-facing architecture, see
-[`architecture.md`](architecture.md) and
-[`extending_analysis_shapes.md`](extending_analysis_shapes.md). For the full change history,
-see [`CHANGELOG.md`](../CHANGELOG.md).
+Researchers whose threat model includes a malicious provider should use a
+fully local model in the same trusted environment or leave generated-code
+execution disabled. See [Security policy](../SECURITY.md) and
+[Architecture](architecture.md) for the exact contract.
+
+## Availability
+
+Sift 0.1 is a public beta:
+
+- macOS: signed and notarized for Apple silicon
+- Windows: unsigned x64 beta
+- Linux: x86_64 and ARM64 beta archives
+
+Start with [Installing Sift](install.md). The broader motivation and design are
+described in
+[What If an AI Analyst Never Saw Your Raw Data?](https://sapieninstitute.org/projects/sift).
