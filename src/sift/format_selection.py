@@ -1315,13 +1315,10 @@ def _worker(source: Path, selection_path: Path, output: Path, metadata_path: Pat
     if len(frame) > 100_000_000 or len(frame.columns) > 100_000:
         raise FormatSelectionError("materialized table exceeds the row or column safety limit")
     frame.to_parquet(output, index=False)
-    os.chmod(output, 0o600)
-    write_bytes_no_follow(
-        metadata_path,
-        _bounded_json(metadata),
-        mode=0o600,
-        sync=True,
-    )
+    # The worker writes only inside a fresh parent-owned staging directory.
+    # The trusted parent validates both files and applies owner-only modes
+    # before publishing them into the research workspace.
+    metadata_path.write_bytes(_bounded_json(metadata))
 
 
 def materialize_selected_format(
@@ -1406,6 +1403,13 @@ def materialize_selected_format(
                 raise FormatSelectionError("isolated format parser returned malformed metadata")
             if int(metadata.get("parser_pid", os.getpid())) == os.getpid():
                 raise FormatSelectionError("complex parser did not execute in isolation")
+            try:
+                os.chmod(output, 0o600)
+                os.chmod(metadata_path, 0o600)
+            except OSError as exc:
+                raise FormatSelectionError(
+                    "could not secure materialized parser output",
+                ) from exc
             os.replace(output, target)
             os.replace(metadata_path, sidecar)
         succeeded = True
@@ -1477,6 +1481,7 @@ def _self_check_failure_detail(stage: str, exc: Exception) -> str:
             ("rejected the input", "parser-exit"),
             ("produced incomplete output", "incomplete-output"),
             ("malformed metadata", "malformed-metadata"),
+            ("could not secure materialized parser output", "output-permissions"),
             ("working AppContainer backend", "backend-health"),
             ("working bubblewrap backend", "backend-health"),
             ("working sandbox-exec backend", "backend-health"),

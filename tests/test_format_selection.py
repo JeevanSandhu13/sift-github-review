@@ -94,6 +94,10 @@ def test_parser_read_paths_include_virtualenv_base_runtime(tmp_path: Path) -> No
             "isolated format parser rejected the input",
             "materialize:parser-exit",
         ),
+        (
+            "could not secure materialized parser output",
+            "materialize:output-permissions",
+        ),
     ],
 )
 def test_format_self_check_failure_detail_is_actionable_without_host_data(
