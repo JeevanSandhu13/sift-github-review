@@ -16,7 +16,9 @@ htmlcov/
 # Virtualenvs
 .venv/
 venv/
+.appenv/
 .uv-python/
+.uv-cache/
 
 # Locally managed analysis runtimes
 .r-libs/
