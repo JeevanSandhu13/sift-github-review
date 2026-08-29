@@ -726,7 +726,10 @@ def _communicate_with_memory_guard(
             ctypes.POINTER(wintypes.DWORD),
         ]
         peek_named_pipe.restype = wintypes.BOOL
-        get_osfhandle = msvcrt.get_osfhandle
+        # ``get_osfhandle`` exists only on Windows, while typeshed is loaded
+        # for the host running mypy. Resolve it dynamically after the runtime
+        # platform guard so cross-platform type checking remains accurate.
+        get_osfhandle = getattr(msvcrt, "get_osfhandle")
     else:
         import selectors
 

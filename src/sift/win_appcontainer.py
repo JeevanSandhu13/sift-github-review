@@ -2164,6 +2164,7 @@ def probe_appcontainer_health() -> tuple[bool, str]:
 
     def _probe_interpreter() -> tuple[Path, tuple[str, ...]]:
         """Return the exact Python runtime Sift executes and its read roots."""
+        roots: tuple[str, ...]
         if getattr(sys, "frozen", False):
             meipass = getattr(sys, "_MEIPASS", None)
             if not meipass:

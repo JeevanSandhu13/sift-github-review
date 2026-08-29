@@ -883,8 +883,8 @@ def _vcf_frame(path: Path) -> Any:
                         raise FormatSelectionError("VCF metadata appears after the column header")
                     continue
                 if line.startswith("#"):
-                    fields = tuple(line.split("\t", 8)[:8])
-                    if header_seen or fields != required_header:
+                    header_fields = tuple(line.split("\t", 8)[:8])
+                    if header_seen or header_fields != required_header:
                         raise FormatSelectionError("VCF column header is missing or malformed")
                     header_seen = True
                     continue

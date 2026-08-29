@@ -93,6 +93,14 @@ jobs:
       - name: Verify connector drivers
         run: uv run python packaging/verify_database_drivers.py
 
+      - name: Run static type analysis
+        if: matrix.platform == 'linux'
+        run: >-
+          uv run mypy src/sift
+          --ignore-missing-imports
+          --follow-imports=silent
+          --no-error-summary
+
       - name: Verify repeated Windows sandbox execution
         if: matrix.platform == 'windows'
         run: uv run pytest -q tests/test_source_dataset_ledger.py -vv
