@@ -193,6 +193,12 @@ matching system. See [the complete installation guide](docs/install.md)
 for prerequisites, upgrades, uninstall behavior, local state paths,
 institutional settings, and platform checks.
 
+The current Windows download is an explicitly labelled unsigned beta. Windows
+Defender SmartScreen may require **More info > Run anyway**, and Smart App
+Control or institutional policy may block it. Do not disable Windows security
+features to install Sift. A CA-backed Authenticode signature will replace this
+beta distribution path before the general Windows release.
+
 Release artifacts include the maintained Python analysis runtime. R and
 licensed Stata are optional and are used only when a researcher explicitly
 chooses to execute code in those languages. Reading R/Stata data files and

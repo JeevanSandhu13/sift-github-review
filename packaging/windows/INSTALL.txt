@@ -1,6 +1,15 @@
 SIFT FOR WINDOWS
 ================
 
+Windows beta notice
+-------------------
+This beta does not yet carry a CA-backed Authenticode publisher signature.
+Windows Defender SmartScreen may show "Windows protected your PC". Verify the
+published SHA-256 checksum before choosing More info > Run anyway. Smart App
+Control or organization-managed policy may block unsigned applications without
+an override; do not disable those protections to install Sift. Wait for the
+signed general release when local policy blocks the beta.
+
 Recommended installation
 ------------------------
 1. Run Sift-Windows-x64-Setup.exe.

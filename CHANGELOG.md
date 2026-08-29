@@ -1,5 +1,13 @@
 # Changelog
 
+## Sift 0.1.0 Windows beta distribution update (2026-08-28)
+
+The Windows installer and portable archive are available as explicitly
+labelled unsigned beta artifacts. Their SHA-256 checksums, CycloneDX SBOMs,
+and Sift Ed25519 release signatures remain published for integrity checking.
+The installation guide documents expected SmartScreen and managed-device
+behavior without asking users to disable Windows security controls.
+
 ## Sift 0.1.0 macOS distribution update (2026-08-28)
 
 The public beta macOS artifact is now produced with hardened-runtime

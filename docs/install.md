@@ -16,10 +16,9 @@ Stata licence for ordinary data import or bundled analysis.
 | Linux ARM64 | 64-bit glibc-based desktop; Ubuntu 24.04 is the qualification baseline | `Sift-Linux-aarch64.tar.gz` |
 
 Use only an artifact whose checksum and release signature match the published
-release manifest. Production macOS and Windows downloads must also carry their
-platform-native publisher signature. Signing and Apple notarization happen in
-the final release pipeline; an unsigned local development build is not a
-public release.
+release manifest. The macOS download carries its platform-native publisher
+signature and Apple notarization. The current Windows download is an explicitly
+labelled unsigned beta; it is not the general Windows release.
 
 ## macOS
 
@@ -36,6 +35,15 @@ To upgrade, quit Sift and replace the existing application in Applications.
 To uninstall, quit Sift and move `/Applications/Sift.app` to the Trash.
 
 ## Windows
+
+The Windows beta does not yet carry a CA-backed Authenticode publisher
+signature. Windows Defender SmartScreen can therefore display **Windows
+protected your PC**; beta testers may inspect the publisher warning, verify the
+published SHA-256 checksum, and choose **More info > Run anyway** when that
+option is available. Smart App Control and organization-managed policy can
+block unsigned applications without an override. Do not disable either control
+to install Sift. Wait for the signed general release if local policy blocks the
+beta.
 
 1. Run `Sift-Windows-x64-Setup.exe`.
 2. Complete the per-user installer; administrator access is not required.
