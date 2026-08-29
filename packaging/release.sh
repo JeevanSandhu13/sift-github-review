@@ -33,8 +33,8 @@
 #   - The release is built directly from this source tree and does not
 #     consult or modify repository metadata.
 #   - Apple's notary service occasionally hangs (a previous release sat
-#     in --wait for 26 hours). When the notarize-poll fix lands the dmg
-#     script caps at 30 min; this wrapper still verifies stapling
+#     in --wait for 26 hours). The DMG script now caps polling at 30
+#     minutes; this wrapper still verifies that stapling
 #     succeeded so a partial run doesn't go unnoticed.
 
 set -euo pipefail

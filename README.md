@@ -261,6 +261,23 @@ A bare local build is unsigned (fine for the same machine). For a
 signed + notarized release set `SIFT_SIGN_IDENTITY` before
 `build_app.sh` and `SIFT_NOTARIZE_PROFILE` before `build_dmg.sh`.
 
+Create the notarization profile interactively so the app-specific password
+does not enter shell history, then run the fail-closed release wrapper:
+
+```bash
+xcrun notarytool store-credentials "sift-notary" \
+  --apple-id "you@example.com" --team-id "TEAMID"
+
+export SIFT_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+export SIFT_NOTARIZE_PROFILE="sift-notary"
+bash packaging/release.sh --no-install
+```
+
+The wrapper verifies the signing identity and keychain profile before the
+build, then checks the final signatures, notarization ticket, and Gatekeeper
+assessment. Upload `dist/Sift.dmg` as a GitHub Release asset; build artifacts
+remain outside source control.
+
 Windows PowerShell:
 
 ```powershell
