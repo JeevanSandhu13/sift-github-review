@@ -7,10 +7,22 @@ receive. Sift is a desktop research assistant built for that constraint. It
 lets a model plan an analysis, write Python, R, or Stata, and interpret the
 results while the source data and computation remain on your computer.
 
-You choose the model and provide the account. Sift works with Anthropic,
-OpenAI, Gemini, selected enterprise deployments, and OpenAI-compatible local
-or remote endpoints. It does not bundle a model subscription or send data to a
-Sift-operated service.
+You choose the model and provide the account. Available integrations include:
+
+- **Models:** Anthropic, OpenAI, Google Gemini, Azure OpenAI, Gemini and Claude
+  on Google Vertex AI, Claude on Amazon Bedrock, and OpenAI-compatible local or
+  remote endpoints such as Ollama, vLLM, LM Studio, and OpenRouter.
+- **Databases and warehouses:** SQLite, DuckDB, PostgreSQL, MySQL, MariaDB,
+  Microsoft SQL Server, Oracle, Snowflake, Google BigQuery, Amazon Redshift,
+  and Databricks SQL.
+- **Storage:** Amazon S3, Google Cloud Storage, Azure Blob Storage, signed HTTPS
+  downloads, and SFTP.
+- **Research and collaboration services:** Zotero, OSF, Dataverse, Zenodo,
+  Figshare, Dryad, Google Drive, OneDrive, SharePoint, Box, Dropbox, REDCap,
+  Qualtrics, KoboToolbox, and OpenClinica.
+
+Sift does not bundle a model subscription or send data to a Sift-operated
+service.
 
 The project is open source under Apache 2.0. For the longer account of the
 problem and design, read
