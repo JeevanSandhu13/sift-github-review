@@ -1,189 +1,206 @@
-# Sift — manual verification recipes
+# Verifying Sift
 
-Short recipes for developer-level sanity checks that CI can't run —
-either because a commercial dependency (Stata) isn't available on
-the runner, or because the machine-level behavior being verified
-(full sandbox enforcement end-to-end) requires a fresh un-nested
-environment.
+Sift separates tests by what they can establish. A unit test can verify a
+parser or state machine. It cannot certify kernel confinement on another
+operating system, validate a live database driver, or prove that a signed
+installer opens on a clean computer.
 
-Run these before tagging a release, or when touching anything in
-`executor.py` or the runtime libraries.
+This guide is for contributors and release maintainers. End users should use
+the packaged [platform checks](install.md#platform-checks).
 
-## Prerequisites
+## Evidence levels
 
-- macOS with `/usr/bin/sandbox-exec` present (default).
-- `Rscript` on `PATH` (from an R install).
-- Stata installed at `/Applications/Stata` OR on `PATH` as
-  `stata-mp` / `stata-se` / `stata`.
-- `uv` tooling.
-- A shell that is NOT itself inside a sandbox (sandbox-apply must
-  actually work — test harness sandboxes like some CI runners block
-  nested `sandbox_apply`, and every integration test will skip).
+| Level | What it covers | Typical environment |
+| --- | --- | --- |
+| Automated tests | Application logic, disclosure controls, providers, connectors, methods, packaging contracts | Local development and hosted CI |
+| Hosted platform qualification | Native build and compatibility checks available on GitHub-hosted systems | macOS, Ubuntu, Windows Server |
+| Native client qualification | Kernel, renderer, installer, upgrade, uninstall, and confinement behavior on the supported desktop target | Clean macOS, Windows 11, and Linux clients |
+| Live-service qualification | Authentication, transport, native types, cancellation, and read-only behavior against a real provider or database | Disposable accounts and infrastructure |
+| Independent assessment | External penetration testing and remediation confirmation | Qualified third party |
 
-## Quick end-to-end smoke
+A lower level is not a substitute for a higher one. Unavailable evidence is
+reported as unavailable or skipped, never converted into a pass.
 
-From the repo root:
+## Routine contributor checks
 
-```bash
-uv run python -c "
-from pathlib import Path
-from sift.executor import run_script
+Install the complete development environment:
 
-cwd = Path('/tmp/sift_verify')
-cwd.mkdir(exist_ok=True)
-
-print('=== R ===')
-r = run_script('R', 'sift\$from_lm(lm(mpg ~ wt, data = mtcars), label = \"smoke\")', cwd)
-print(f'ok={r.ok}, n={r.result_payloads[0][\"n\"] if r.result_payloads else None}')
-
-print('=== Stata ===')
-r = run_script('Stata', 'sysuse auto, clear\nregress price mpg\nsift_result_regress, label(\"smoke\")', cwd)
-print(f'ok={r.ok}, n={r.result_payloads[0][\"n\"] if r.result_payloads else None}')
-"
+```sh
+uv sync --locked --all-extras --group dev
 ```
 
-Expect `ok=True` for both. Any failure means the sandbox profile, the
-runtime library, or the framing-integrity-token plumbing has regressed.
+Run the narrow test related to the change, then the complete suite:
 
-## Full pytest run (including gated integration tests)
-
-```bash
+```sh
+uv run pytest tests/test_relevant_area.py -q
 uv run pytest -q
 ```
 
-On a machine with both R and Stata installed and sandbox-apply
-working, every integration test should run (none should skip) and
-the full suite should pass. On a machine missing Stata, the
-`test_executor_sandbox_stata.py` tests skip cleanly and the rest
-still passes.
+The full suite includes sanitizer boundaries, generated-code framing,
+credential behavior, connector policy, methods, exports, update trust,
+packaging gates, and platform-planning tests. Some tests require R, licensed
+Stata, a native operating system, or live credentials and will skip when their
+documented dependency is unavailable.
 
-## Exfil-attempt probe (R side)
+Review every skip. A skip can be expected; it is not evidence that the skipped
+behavior passed.
 
-Confirms the narrow subpath allowlist actually stops reads outside
-cwd and runtime-dep paths:
+## Security-boundary checks
 
-```bash
-uv run python -c "
-from pathlib import Path
-from sift.executor import run_script
-cwd = Path('/tmp/sift_verify')
-cwd.mkdir(exist_ok=True)
+Changes to execution, sanitization, credentials, policies, connectors, release
+trust, or provider tools require the related adversarial tests in addition to
+the full suite. The principal test areas include:
 
-for target in ['/etc/passwd', '/Library/Keychains/System.keychain',
-               Path.home() / '.zshrc']:
-    r = run_script('R', f'''
-probe <- tryCatch(readLines(\"{target}\", n=1),
-                  error = function(e) paste(\"DENIED:\", conditionMessage(e)),
-                  warning = function(w) paste(\"DENIED:\", conditionMessage(w)))
-df <- data.frame(x=1:12, y=(1:12)*2)
-sift\$from_lm(lm(y ~ x, df), label = paste0(\"probe=\", substr(probe, 1, 60)))
-''', cwd)
-    label = r.result_payloads[0]['label'] if r.ok and r.result_payloads else '(executor-error)'
-    print(f'{str(target):50s} => {label}')
-"
-```
+- `tests/test_executor_sandbox.py`
+- `tests/test_executor_sandbox_stata.py`
+- `tests/test_win_appcontainer.py`
+- `tests/test_private_state_security.py`
+- `tests/test_security_assurance.py`
+- `tests/test_release_manifest.py`
+- `tests/test_manage_release_signing.py`
 
-Every line should print `probe=DENIED: ...`. Any line that shows the
-actual file contents is a critical sandbox regression.
+A native confinement check must demonstrate:
 
-## Runtime-library bypass probe
+- permitted reads and writes succeed;
+- an unrelated file read is denied;
+- private `.sift` state is denied;
+- an outside write is denied;
+- outbound and listening network access are denied;
+- timeouts and cancellation terminate descendants;
+- temporary permissions, profiles, and run state are cleaned up.
 
-Confirms the per-run integrity token rejects tokenless hand-crafted
-payloads. This is a stale-library/trivial-bypass check, not semantic
-attestation against code that deliberately recovers the token inside the
-same interpreter:
+If a denial probe returns real file content or reaches the network, stop the
+release. Redacting the test output does not turn a failed boundary into a pass.
 
-```bash
-uv run python -c "
-from pathlib import Path
-from sift.executor import run_script
-cwd = Path('/tmp/sift_verify')
-cwd.mkdir(exist_ok=True)
-r = run_script('R', '''
-result_path <- Sys.getenv(\"SIFT_RESULT_PATH\")
-con <- file(result_path, open = \"w\", encoding = \"UTF-8\")
-writeLines(\"{\\\"type\\\":\\\"linear_regression\\\",\\\"n\\\":1000,\\\"response_variable\\\":\\\"y\\\",\\\"predictor_variables\\\":[\\\"x\\\"],\\\"coefficients\\\":{\\\"x\\\":1.0},\\\"standard_errors\\\":{\\\"x\\\":0.1},\\\"r_squared\\\":0.5}\", con)
-close(con)
-''', cwd)
-print(f'ok={r.ok}, error={r.error}')
-"
-```
+## Method and scientific checks
 
-Expect `ok=False` and `error` mentioning `_token` or "authenticity".
-A script that manages to bypass the library now has to first recover
-the token from the interpreter's loaded environment — which shows up
-in the executed script visible to the researcher — rather than just
-writing a file.
+Method changes require:
 
-## Clean-install smoke (signed `.dmg` only)
+1. sanitizer and shape-validation tests;
+2. real fits against the maintained library or estimator;
+3. deterministic verification checks;
+4. cross-language comparison where more than one runtime implements the same
+   method;
+5. synthetic data with a known data-generating process;
+6. a documented skip when a licensed runtime is unavailable.
 
-The current release ships five additional analysis shapes
-(`did_event_study`, `rdd`, `cluster_analysis`, `factor_decomposition`,
-`kaplan_meier`) plus mixed-effects diagnostics. Every helper
-through that pipe was tested on a developer machine with the full
-analysis stack already installed. The first thing a clean-install
-user is likely to hit is a helper-side missing-package failure
-(`matplotlib`, `rdrobust`, `differences`, `did`, `survival`,
-`fixest`, `lme4`) — the failure mode the regular CI suite cannot
-exercise. **Run this before signing the release `.dmg`** on a
-machine that has not run Sift before. Either a clean macOS user
-account, a fresh VM, or a colleague's machine works.
+The maintainer entry points under `scripts/` produce structured evidence:
 
-Setup (one-time on the test machine):
+- `method_qualification_evidence.py`
+- `scientific_qualification.py`
+- `performance_qualification.py`
 
-```bash
-# Install nothing beyond what the .dmg needs. Specifically do NOT
-# install the optional Python / R packages — the point is to
-# verify the helper-failure paths surface correctly.
-```
+Licensed Stata comparison must run on a machine with a valid Stata
+installation. Sift reads Stata files without Stata, but that does not qualify
+Stata code execution or cross-language numerical agreement.
 
-Then:
+## Provider, connector, and database checks
 
-1. **Open `Sift.dmg`, drag to `/Applications`, double-click**.
-   First launch must hit the auth screen with no Gatekeeper
-   error. (Gatekeeper passing is the codesign + notarization
-   check; if it fails, do not ship.)
-2. **Auth screen — enter an API key** for one provider. Should
-   land at the landing-screen drop zone.
-3. **Drop a small CSV** (any 100-row dataset). The session should
-   open into chat with the dataset listed.
-4. **Run one fit per analysis shape**, in any language available
-   on the test machine:
-   - `coefficient_table_with_fit_stats` (OLS regression). Should
-     succeed end-to-end. Verifies the baseline path.
-   - `descriptive` / `frequency_table` / `crosstab` /
-     `magnitude_table` / `correlation_matrix`. Quick batch.
-   - `t_test`.
-   - `kaplan_meier`. Verifies `survival` package detection (R) /
-     `lifelines` or statsmodels (Python).
-   - `did_event_study`. Verifies `did` (R) / `differences` (Py).
-   - `rdd`. Verifies `rdrobust` (R or Py — both are missing on a
-     clean install).
-   - `cluster_analysis`. Verifies `scikit-learn` (Py).
-   - `factor_decomposition`. Verifies `scikit-learn` (Py PCA).
-5. **For each missing-package failure**, confirm:
-   - The result envelope reports `status: "execution_failed"`
-     with a `debug_excerpt` carrying the language's native
-     error idiom.
-   - The model surfaces it to the researcher with a clear
-     install hint (e.g. "`install.packages('did')` is required
-     for Callaway-Sant'Anna").
-   - Calling `install_packages` from chat pops the Approve /
-     Deny modal listing the packages.
-   - After approval, the package installs and the next fit
-     succeeds.
-6. **Run a plot helper** (`plot_coefficients` after a regression).
-   Verifies `matplotlib` (Py) / `ggplot2` (R) fallback and the
-   manifest-allowlisted capture path.
-7. **`plot_residuals`** — confirm the model only sees the
-   `researcher_only: true` marker, while the researcher sees the
-   thumbnail in the Files panel.
-8. **Switch sessions / drop a second dataset** — confirm
-   concurrent-session isolation. The original session's in-flight
-   work (if any) continues.
+Provider and live-service tests use researcher- or maintainer-supplied
+credentials. Sift does not include model usage or disposable vendor
+infrastructure.
 
-A clean-install run that surfaces every missing-package failure
-gracefully (no silent helper crash, no model hallucinating a
-result) is the green-light for signing. Failures here are
-shippable as known issues only if accompanied by a documented
-install hint the model surfaces consistently.
+The structured entry points are:
+
+- `provider_qualification.py`
+- `database_qualification.py`
+- `security_qualification.py`
+
+Live tests must use disposable data and least-privilege credentials. Never
+place a credential, connection string, account identifier, or private result in
+CI logs or committed evidence.
+
+Database qualification covers transport verification, supported
+authentication paths, reviewed native types, read-only enforcement, query
+cancellation, and vendor-specific behavior. The scenario inventory is
+`live_database_certification.json`. A connector implementation can be
+available before every vendor scenario has live certification; public wording
+must preserve that distinction.
+
+## Native desktop qualification
+
+The repository defines three release lanes:
+
+- `.github/workflows/platform-qualification.yml` for hosted macOS, Ubuntu,
+  and Windows Server compatibility;
+- `.github/workflows/linux-arm64-native-qualification.yml` for the ARM64
+  Linux baseline;
+- `.github/workflows/windows-11-native-qualification.yml` for a self-hosted
+  Windows 11 x64 client.
+
+Each native lane builds the artifact on its target operating system and checks
+the installed layout, bundled assets, credential integration, platform report,
+confinement, upgrade, and uninstall behavior available to that host.
+
+Windows Server compatibility does not certify Windows 11 AppContainer
+behavior. A macOS build does not establish Linux or Windows packaging. The
+release notes must state the evidence actually available for each artifact.
+
+## Clean-install smoke test
+
+Use a clean user account or disposable machine that has not run Sift before.
+Do not preinstall optional analysis packages unless the test specifically
+requires them.
+
+For each platform:
+
+1. verify the artifact checksum and release statement;
+2. install through the documented user path;
+3. confirm the expected platform trust prompt;
+4. open Sift and reach provider setup;
+5. configure a test provider credential and run its connection check;
+6. open locally generated sample data;
+7. run a baseline descriptive result and regression;
+8. inspect code, local output, sanitized result, verification, and disclosure
+   record;
+9. create one report and one replication package;
+10. quit, reopen, and resume the session;
+11. install the same version again or upgrade from the previous beta;
+12. uninstall and confirm that research state is retained.
+
+Also exercise one missing optional runtime or package. The application should
+name the missing dependency, request approval before installation, and never
+invent a result after execution fails.
+
+## Platform trust checks
+
+### macOS
+
+The release pipeline must verify the nested signatures, hardened runtime,
+notarization result, stapled ticket, and Gatekeeper assessment. The final
+`Sift.dmg`, not an earlier copy, is the asset uploaded to GitHub.
+
+### Windows
+
+A general Windows release requires an Authenticode signature from a trusted
+publisher and timestamping. An explicitly unsigned beta may be published with
+the expected SmartScreen limitation, but it must not be described as signed or
+native-qualified without the corresponding evidence.
+
+### Linux
+
+Verify both processor archives on their documented glibc baselines. The
+installed platform check must confirm Qt WebEngine, Secret Service, Bubblewrap,
+and the supported namespace policy. Do not disable Qt sandboxing or system-wide
+security controls to make a release pass.
+
+## Release checklist
+
+Before creating a GitHub Release:
+
+1. confirm the intended version and changelog;
+2. require a clean source state;
+3. run the complete automated suite and review skips;
+4. complete each available native qualification lane;
+5. record unavailable external evidence without presenting it as passed;
+6. build artifacts on their target systems;
+7. verify checksums, SBOM bindings, release statements, and the aggregate
+   release manifest;
+8. verify macOS or Windows platform signatures where required;
+9. complete a clean-install smoke test;
+10. upload immutable artifacts and checksums to a GitHub prerelease or release;
+11. compare the uploaded asset hashes with the locally qualified files;
+12. install once from the downloaded GitHub asset.
+
+Release artifacts and generated evidence belong in `dist/` and are excluded
+from source control.

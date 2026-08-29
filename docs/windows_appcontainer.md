@@ -1,175 +1,163 @@
-# Windows AppContainer backend
+# Windows AppContainer confinement
 
-## Architecture
+Sift runs generated analysis code inside a Windows AppContainer. The backend is
+implemented in `src/sift/win_appcontainer.py` and is used by
+`executor.run_script` on Windows.
 
-`src/sift/win_appcontainer.py` implements AppContainer confinement through a
-LowBox token passed to `CreateProcess` with `STARTUPINFOEX`. A Job Object adds
-resource limits and process-tree cleanup. `executor.run_script` dispatches to
-this backend on Windows; `env_detect.py` and `doctor.py` report its readiness.
+AppContainer provides the filesystem and network boundary. A Job Object adds
+resource limits, cancellation, and process-tree cleanup. Sift performs a live
+denial probe before enabling generated-code execution; the presence of the
+Windows APIs alone is not treated as evidence that confinement works.
 
-Windows-specific correctness is qualified by the native Windows workflow in
-`.github/workflows/windows-11-native-qualification.yml`. A source review or a
-non-Windows unit test is not a substitute for that release gate.
+## Security properties
 
-The backend does not trust API availability alone. At startup,
-`probe_appcontainer_health()` launches a throwaway AppContainer and verifies
-that it cannot read outside its grant set or open a network connection. If
-either check fails or is inconclusive, `run_script` refuses to execute
-generated code.
+The Windows backend is responsible for the same outcome as the macOS and Linux
+backends:
 
-## What the existing backends guarantee
+- generated code has no network capability;
+- only reviewed runtime files are readable;
+- the workspace and current run receive the minimum required write access;
+- private `.sift` state remains inaccessible;
+- memory, CPU time, process count, file size, and disk reserve are bounded;
+- cancellation and timeouts terminate the complete process tree;
+- temporary access-control entries and AppContainer profiles are removed.
 
-Each platform backend enforces four things around a script subprocess:
+If setup, launch, monitoring, or cleanup is incomplete, the run fails closed.
 
-1. **No network** — the subprocess has no interface to bind or connect
-   from at all (Linux: a fresh network namespace via `--unshare-all`;
-   macOS: `(deny network*)` in the SBPL profile).
-2. **Filesystem confinement** — read-only access to the system trees an
-   interpreter needs (stdlib, shared libs, an R/Python install's own
-   package directory), read-write access to exactly the researcher's cwd
-   and the run's scratch directory, and a private-state carve-out so
-   `.sift/` (session state, the release ledger, prior run logs) is
-   invisible even though it lives inside the writable cwd.
-3. **Process isolation** — a script cannot enumerate or signal any
-   process outside its own sandbox (Linux: PID namespace; macOS: SBPL's
-   process model).
-4. **Resource limits** — CPU time, memory, process count, and per-file
-   size caps (`resource_limits_preexec`'s `RLIMIT_*` calls on both
-   platforms, layered underneath the namespace/profile confinement).
+## AppContainer process
 
-A Windows backend has to replicate all four with OS-enforced guarantees,
-not merely "best-effort" ones — the whole reason Sift refuses outright
-on an unsupported platform is that a script with unrestricted local file
-access could smuggle data out through any surviving channel, and a
-sandbox that only *looks* like it confines the process is worse than an
-honest refusal.
+Sift creates a LowBox token and passes its security capabilities to
+`CreateProcess` through `STARTUPINFOEX`. The process receives no
+`internetClient` or `internetClientServer` capability, so outbound and
+listening sockets are unavailable.
 
-## Windows primitives surveyed
+Filesystem access is granted to the ephemeral AppContainer SID with explicit
+access-control entries:
 
-| Mechanism | What it gives you | Fit for Sift |
-|---|---|---|
-| **AppContainer** (`CreateAppContainerProfile`, LowBox tokens, capability SIDs) | Real OS-enforced confinement: a process gets a per-container SID, and the kernel denies access to any filesystem path, registry key, or network capability that wasn't explicitly granted to that SID. This is the mechanism Windows Sandbox, MSIX-packaged apps, and modern browser sandboxes (Edge, Chrome on Windows) are built on. | **Best fit.** Filesystem confinement is ACL-grant-based rather than mount-based, but the end guarantee is the same shape as bwrap's allowlist: nothing is readable or writable unless explicitly granted. Network is denied by default — a container with no `internetClient`/`internetClientServer` capability SID literally cannot open a socket, which is a stronger and simpler guarantee than a firewall rule. |
-| **Job Objects** (`CreateJobObject`, `JOBOBJECT_EXTENDED_LIMIT_INFORMATION`) | Per-job CPU time caps (`JOB_OBJECT_LIMIT_JOB_TIME`), memory caps (`JOB_OBJECT_LIMIT_JOB_MEMORY`), and active-process-count caps (`JOB_OBJECT_LIMIT_ACTIVE_PROCESS`) — plus "kill all on job close," which replaces bwrap's `--die-with-parent`. | **Directly maps to `resource_limits_preexec`.** This is the easy, well-trodden half of the work — `pywin32`'s `win32job` module covers the whole API, and it needs no elevated privilege. |
-| **Restricted tokens** (`CreateRestrictedToken`) | Strips privileges and can deny specific SIDs. Predates AppContainer; this is roughly what pre-2012 sandboxes (old Chrome, old Adobe Reader) used. | **Superseded.** Coarser than AppContainer's capability model and more error-prone to get right (it's an SID *denylist*, not an allowlist — a missed SID is a silent hole, the same class of bug bwrap's `--remount-ro /` comment describes discovering empirically on Linux). Not recommended as the primary mechanism for new work. |
-| **Windows Sandbox** (full disposable VM, `Windows Sandbox` optional feature + `.wsb` config) | Maximum isolation — a genuinely separate lightweight VM per run. | **Wrong shape for this product.** Requires Windows 10/11 **Pro or Enterprise** (unavailable on Home, which a meaningful fraction of individual researchers run), requires enabling an optional Windows feature via an admin prompt and often a reboot before first use, and each sandboxed run boots a VM rather than spawning a subprocess — orders of magnitude slower than the sub-second bwrap/sandbox-exec launch Sift's UX depends on for the "run this script" loop. File sharing into the VM is also configured through a static `.wsb` XML mapped-folder list, which doesn't compose cleanly with the executor's per-run scratch-directory model (a fresh `run_dir` every script execution). Worth revisiting later as an optional "maximum isolation" tier, not as the default backend. |
-| **WSL2** (ship a Linux userspace, reuse the existing bwrap backend inside it) | Reuses tested code entirely. | **Rejected as the default path.** WSL2 is an opt-in Windows feature with its own enablement friction (similar to Windows Sandbox), and routing a Windows researcher's *native* Python/R/Stata installs and their data through a Linux VM's filesystem translation layer is a materially different (and worse) support story than confining the researcher's actual Windows processes directly. Could be offered as a fallback for researchers who already have WSL2 set up, but shouldn't be the primary design. |
+- read and execute for the selected interpreter and required libraries;
+- read and write for the active workspace and run directory;
+- traversal, but not content access, through protected private-state
+  directories;
+- no grant for unrelated user files, credentials, or system locations.
 
-**Recommendation:** AppContainer (via a LowBox token passed to
-`CreateProcess`'s `STARTUPINFOEX` / `PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES`)
-for filesystem + network confinement, layered with a Job Object for
-resource limits and process-count caps. This is the same tier of
-assurance as bwrap/sandbox-exec (OS-enforced, not advisory) and the same
-general shape: two independent, composable primitives rather than one
-monolithic profile.
+The workspace grant is temporary filesystem state. Sift records the original
+access-control descriptors, applies the minimum grants before launch, and
+restores the original descriptors during cleanup. Cleanup is required after a
+successful run, failure, cancellation, timeout, or child-process crash.
 
-## Concrete mapping (bwrap/sandbox-exec → Windows)
+## Private session state
 
-| Current guarantee | Windows equivalent |
-|---|---|
-| `--unshare-all` (no network namespace) | AppContainer with no `internetClient`/`internetClientServer` capability SID granted |
-| Read-only system trees (`/usr`, `/lib`, …) | `icacls`/`SetNamedSecurityInfo` granting the AppContainer SID **read+execute** ACEs on the interpreter's install directory and its dependent DLL paths |
-| Read-write cwd + run_dir | ACEs granting the AppContainer SID **read+write** on exactly those two paths, added before spawn and — importantly — removed after the run completes (ACL grants are persistent filesystem state, unlike a mount namespace that vanishes when the sandbox process exits; leaking a stale grant is a real cleanup-correctness risk this design has to get right) |
-| `.sift/` private-state carve-out | Before the inheritable workspace ACE is applied, `.sift/` and `.sift/runs/` are marked DACL-protected and receive only non-inheriting traversal permission for the ephemeral AppContainer SID. The workspace ALLOW therefore cannot propagate into private state; only the exact current run receives a recursive read/write ACE. Cleanup restores both the original DACL and its original protected/unprotected inheritance state. |
-| PID/IPC namespace isolation | Job Object's own process accounting scopes what the sandboxed process can see/signal; not identical to a Linux PID namespace but comparable in practice since AppContainer processes already can't open handles to processes outside their integrity/container boundary without an explicit capability |
-| CPU/memory/process `RLIMIT_*` (`resource_limits_preexec`) | `JOBOBJECT_EXTENDED_LIMIT_INFORMATION` (`JOB_OBJECT_LIMIT_JOB_TIME`, `JOB_OBJECT_LIMIT_JOB_MEMORY`, `JOB_OBJECT_LIMIT_ACTIVE_PROCESS`) |
-| `RLIMIT_FSIZE` single-file ceiling | Windows has no Job Object equivalent. `WritableFileSizeMonitor` takes a pre-launch baseline and polls both effective writable scopes (workspace excluding `.sift`, plus the explicitly exposed current run directory), terminating the complete Job Object on an oversized new/modified file and failing closed if any scope cannot be scanned responsively. This is intentionally described as parent-side polling, not exact `RLIMIT_FSIZE` equivalence: a write can overshoot until the next scan, and a temporary file created and removed wholly between scans cannot be recovered from a metadata walk. Poll delay adapts to scan cost (50–500 ms), overlapping roots are walked once, and a scan taking over one second is refused rather than allowed to consume the workspace continuously while providing a misleadingly slow guard. |
-| Aggregate many-small-file exhaustion | The same parent monitor issues one constant-size free-space query per distinct filesystem backing the effective writable scopes at each poll. It refuses to start below `SIFT_SCRIPT_MIN_FREE_DISK_BYTES`, terminates the complete Job Object if free space crosses that reserve, and fails closed if capacity cannot be measured. This does not impose a fixed aggregate-output quota; it preserves a machine-level safety margin even when no individual file reaches `RLIMIT_FSIZE`. |
-| `--die-with-parent` | Job Object's `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` |
-| `find_sandbox_exec()` / `find_bwrap()` health probe | A `find_appcontainer_support()` probe: confirm `CreateAppContainerProfile` succeeds for a throwaway profile, a trivial process launches inside it with the intended capability set, and the deny/allow ACL model behaves as expected on **this specific machine** (this class of platform-health probe already exists for both current backends specifically because "the API exists" and "the API works on this machine" are different questions — see `_probe_sandbox_health`'s docstring) |
+The workspace may contain a `.sift` directory holding chat history,
+provenance, prior results, the disclosure ledger, and run records. An
+inheritable workspace grant must not flow into that directory.
 
-## Security rationale
+Before the workspace grant is applied, Sift protects the `.sift` and
+`.sift/runs` DACLs and adds only the traversal needed to reach the exact
+current run. The current run receives its own recursive read/write grant.
+Cleanup restores both the original DACL and its original inheritance state.
 
-Everything past the design-mapping table above is genuine Win32 systems
-programming: `CreateAppContainerProfile`, building a `SECURITY_CAPABILITIES`
-struct, threading it through `STARTUPINFOEX` and `UpdateProcThreadAttribute`,
-and getting the ACL grant/revoke sequencing exactly right (a revoke that
-fails to run after a crashed script would leak filesystem access to the
-next process that happens to run under the same AppContainer SID). These
-guarantees cannot be established by non-Windows tests because they depend on
-Windows kernel behavior and concrete `ctypes` bindings.
+## Job Object and resource limits
 
-Writing that code blind — struct layouts and API call sequences composed
-from documentation and never actually executed — carries a specific,
-serious risk: a subtly wrong `SECURITY_CAPABILITIES` struct, or a missed
-`SetNamedSecurityInfoW` call, would not necessarily raise an obvious
-error. It could produce a process that *looks* sandboxed (constructed
-with the right API calls, launched successfully) while actually running
-with full access — a silent, false-confidence failure mode that is
-categorically worse than an explicit refusal.
+Every generated process is assigned to a Job Object configured with:
 
-Sift therefore fails closed rather than trusting API presence.
-`probe_appcontainer_health()` is a mandatory gate, checked fresh
-every session via `env_detect.appcontainer_probe_result()`, that actually
-launches a throwaway AppContainer process on the researcher's real
-machine and empirically confirms — not merely assumes — that a denied
-file read and a denied network connect both actually get denied. Only
-if that probe passes does `run_script` treat the backend as available;
-otherwise it refuses exactly like "no backend installed" would. This
-means a failed probe prevents activation rather than creating silent confidence.
-The probe does not prove the complete implementation correct, so every release
-must also pass the native Windows qualification workflow.
+- `JOB_OBJECT_LIMIT_JOB_TIME`;
+- `JOB_OBJECT_LIMIT_JOB_MEMORY`;
+- `JOB_OBJECT_LIMIT_ACTIVE_PROCESS`;
+- `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`.
+
+Closing or terminating the job reaches children created by parallel and
+multiprocessing workloads. This is the Windows equivalent of terminating the
+complete process group on macOS or Linux.
+
+Windows has no direct Job Object equivalent to POSIX `RLIMIT_FSIZE`.
+`WritableFileSizeMonitor` therefore records a pre-launch baseline and scans
+the effective writable scopes while the job is active. It terminates the job
+when a new or modified file exceeds the configured limit.
+
+The same monitor checks free space once per filesystem. A run is refused when
+available capacity is already below `SIFT_SCRIPT_MIN_FREE_DISK_BYTES`, and
+the job is terminated if it crosses that reserve. A scan that cannot complete
+within the reviewed responsiveness limit fails the run rather than silently
+providing a weak guard.
+
+## Launch lifecycle
+
+Each run follows this order:
+
+1. Confirm that the AppContainer API surface is present.
+2. Require a successful live health probe for the current session.
+3. Resolve and validate the runtime, workspace, and private-state paths.
+4. Create an ephemeral AppContainer profile.
+5. Save the original access-control descriptors.
+6. Apply the reviewed read, write, and traversal grants.
+7. Create the Job Object and resource monitors.
+8. Launch the process with the LowBox token and sanitized environment.
+9. Collect bounded output and framed result files.
+10. Terminate the job on timeout, cancellation, or monitor failure.
+11. Restore access-control descriptors and remove the profile.
+12. Refuse the result if cleanup cannot be confirmed.
+
+## Live health probe
+
+`probe_appcontainer_health()` launches a throwaway container on the
+researcher's machine and checks both a denied file read and a denied network
+connection. `env_detect.appcontainer_probe_result()` exposes the result to
+the executor, platform check, and diagnostics.
+
+The probe has three possible outcomes:
+
+- API unavailable;
+- API available but the live denial check failed or was inconclusive;
+- API available and the denial check passed.
+
+Only the third outcome enables generated-code execution. The probe is a
+machine-health gate, not a complete proof of implementation correctness.
 
 ## Implementation map
 
-1. **`src/sift/win_appcontainer.py`** — pure planning functions (`plan_acl_grants`,
-   `plan_capability_sids`, `plan_job_limits`) plus the portable
-   `WritableFileSizeMonitor` (unit-tested on every
-   platform, mirroring how `_bwrap_argv` is tested without bwrap
-   actually running) plus the Windows-only application layer
-   (`create_appcontainer_profile`, `grant_acl`, `create_job_object`,
-   `spawn_in_appcontainer`, the `AppContainerRun` context manager, and
-   `probe_appcontainer_health`).
-2. **`env_detect.py`** — `find_appcontainer_support()` (cheap "does the
-   API surface exist" check, Windows 8+) and
-   `appcontainer_probe_result()` (cached accessor for the live probe),
-   plus a new `Environment.appcontainer_support` field and a
-   `has_sandbox_backend()` win32 branch that checks BOTH gates, not just
-   API presence.
-3. **`executor.py`** — `run_script`'s preflight now has a real win32
-   branch (two-gate: API-surface-present, then live-probe-passed) instead
-   of an unconditional refusal; the confinement-wrapper build site
-   branches on platform (Windows applies confinement via `CreateProcess`
-   flags, not an argv-prefixed wrapper binary, unlike macOS/Linux); the
-   `subprocess.Popen` call site now spawns through
-   `AppContainerRun.__enter__()` on win32, returning an
-   `AppContainerProcess` that implements the same
-   `.pid`/`.communicate(timeout=)`/`.kill()`/`.returncode` surface so the
-   rest of `run_script` (result parsing, stderr splitting, etc.) needed
-   no Windows-specific duplicate; and the timeout handler's process-group
-   kill (`os.killpg`/`os.getpgid`, which don't exist on Windows) now
-   branches to `AppContainerProcess.kill()` (Job Object termination —
-   reaches every process in the job, a strictly stronger guarantee than
-   `killpg` for parallel/multiprocessing workers).
-4. **`doctor.py`** — a new `_appcontainer_report()` with the same
-   three-way split as the two gates above (not present / present-but-
-   probe-failed / ok), wired into `_sandbox_report`'s win32 branch and
-   the `_SANDBOX_ROW_NAMES` gating tuple.
-5. **`ui.py`** — the CLI's sandbox-backend warning names "AppContainer"
-   on win32 instead of falling through to the generic "a sandbox
-   backend" string.
-6. **Tests** — `tests/test_win_appcontainer.py` covers pure planning,
-   writable-scope/file-size-monitor invariants, every
-   pure planning function, ACL grant ordering/masking invariants, and
-   the off-Windows refusal path for every OS-calling function).
-   `tests/test_executor_sandbox.py` and `tests/test_doctor.py` cover absent,
-   failed-probe, and verified-probe branches. Native integration tests provide
-   the Windows API and kernel evidence.
+| Area | Location |
+| --- | --- |
+| AppContainer profiles, ACL planning, Job Objects, monitors, launch, and cleanup | `src/sift/win_appcontainer.py` |
+| Host capability and live-probe detection | `src/sift/env_detect.py` |
+| Language execution and timeout handling | `src/sift/executor.py` |
+| Packaged platform report | `src/sift/platform_support.py` |
+| AppContainer unit and process-contract tests | `tests/test_win_appcontainer.py`, `tests/test_win_appcontainer_communicate.py` |
+| Executor and diagnostic integration tests | `tests/test_executor_sandbox.py`, `tests/test_platform_support.py` |
+| Native Windows release lane | `.github/workflows/windows-11-native-qualification.yml` |
 
-## Native qualification checklist
+## Qualification
 
-The self-hosted Windows 11 workflow must pass before a Windows artifact is
-released. It must establish all of the following on a clean x64 client host:
+Portable tests can validate planning, structure layouts, ACL ordering,
+monitoring logic, cleanup state machines, and off-Windows refusal. They cannot
+establish Windows kernel behavior.
 
-1. The complete test suite passes and every `ctypes` binding loads correctly.
-2. The live probe confirms allowed writes, outside/private read denials,
-   network denial, file-size enforcement, and the aggregate disk reserve.
-3. Real subprocess integration tests confirm denied reads, denied writes, and
-   denied network calls inside AppContainer.
-4. Crash, cancellation, and timeout tests leave no stale ACL grants or orphaned
-   AppContainer profiles.
-5. The bundled Python runtime resolves and runs inside the installed layout;
-   optional R and Stata installations work when present.
+Before Sift describes a Windows artifact as native-qualified, the self-hosted
+Windows 11 x64 workflow must establish that:
 
-The workflow is defined in
-`.github/workflows/windows-11-native-qualification.yml`. A release artifact
-without current native evidence is not Windows-qualified.
+1. the full test suite and Windows `ctypes` bindings pass;
+2. the live probe confirms allowed writes, outside and private read denials,
+   and network denial;
+3. file-size enforcement and the disk reserve terminate the full job;
+4. real subprocess tests confirm read, write, and network restrictions;
+5. crash, cancellation, and timeout paths leave no stale ACL or profile;
+6. the installed application launches with its bundled runtime;
+7. optional R and Stata execution works when those products are present.
+
+Windows Server CI remains useful compatibility evidence but is not a substitute
+for the Windows 11 client lane. A beta without current native evidence must be
+labelled as such and must not be described as Windows-qualified.
+
+## Known differences from POSIX confinement
+
+- The file-size limit is enforced by parent-side polling rather than a kernel
+  `RLIMIT_FSIZE`. A write may briefly exceed the limit before the next scan,
+  and a temporary file created and deleted entirely between scans may not be
+  observed.
+- A Job Object is not a Linux PID namespace. It provides process accounting,
+  limits, and full-tree termination, while AppContainer access checks prevent
+  ordinary cross-boundary process access.
+- AppContainer filesystem grants are persistent until restored, unlike a mount
+  namespace that disappears with the process. Cleanup verification is
+  therefore part of the security boundary.
+
+These differences are documented rather than described as exact equivalence.
