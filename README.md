@@ -306,7 +306,7 @@ final artifacts.
 Sift ships with the in-app feedback channel **disabled** — no
 third-party endpoint receives anything unless a build is explicitly
 configured with `SIFT_FEEDBACK_ACCESS_KEY`. Otherwise, email
-jeevan@sapieninstitute.org.
+js.sandhu@mail.utoronto.ca.
 
 ## Repository layout
 

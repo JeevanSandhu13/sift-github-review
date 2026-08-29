@@ -3,7 +3,7 @@ name = "sift"
 version = "0.1.0"
 description = "Sift — a local research assistant for sensitive data, using researcher-supplied model APIs or endpoints."
 authors = [
-    {name = "Jeevan Sandhu", email = "jeevan@sapieninstitute.org"},
+    {name = "Jeevan Sandhu", email = "js.sandhu@mail.utoronto.ca"},
 ]
 # Apache License 2.0 — see LICENSE.
 readme = "README.md"
@@ -24,6 +24,7 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Topic :: Security",
 ]
+
 dependencies = [
     # ``security_assurance`` parses the locked dependency inventory at runtime.
     # tomllib is stdlib only on 3.11+, while Sift supports Python 3.10.
@@ -139,6 +140,13 @@ dependencies = [
     # / async ``chats.create`` surface the provider depends on.
     "google-genai>=2.0",
 ]
+
+[project.urls]
+Homepage = "https://sapieninstitute.org/projects/sift"
+Repository = "https://github.com/JeevanSandhu13/sift-github-review"
+Documentation = "https://github.com/JeevanSandhu13/sift-github-review/tree/main/docs"
+Issues = "https://github.com/JeevanSandhu13/sift-github-review/issues"
+Changelog = "https://github.com/JeevanSandhu13/sift-github-review/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 # Database drivers are optional so a local-only installation does not carry
