@@ -1,42 +1,56 @@
 # Sift documentation
 
-## Start here
+The README is the quickest introduction to Sift. This directory contains the
+longer references for researchers, institutional reviewers, contributors, and
+release maintainers.
 
-- [`overview.md`](overview.md) — product behavior and privacy model in plain
-  language.
-- [`install.md`](install.md) — source setup, native installation, upgrades,
-  local state, and platform prerequisites.
-- [`architecture.md`](architecture.md) — architecture, design decisions, and
-  non-negotiable invariants.
-- [`verification.md`](verification.md) — local, integration, and release
-  qualification procedures.
+## Using Sift
 
-## Research and analysis
+- [Installing Sift](install.md) covers downloads, checksums, setup on macOS,
+  Windows, and Linux, first-run configuration, upgrades, uninstalling, and
+  troubleshooting.
+- [Sift overview](overview.md) explains the product and privacy model without
+  requiring knowledge of the codebase.
+- [Who Sift is for](who_uses_sift.md) describes representative research and
+  organizational settings, along with cases where another tool is a better
+  choice.
 
-- [`extending_analysis_shapes.md`](extending_analysis_shapes.md) — how to add
-  a result shape without weakening disclosure control.
-- [`vision.md`](vision.md) — product direction and explicit non-goals.
-- [`who_uses_sift.md`](who_uses_sift.md) — intended research settings and
-  representative workflows.
-- [`beta_study_protocol.json`](beta_study_protocol.json) — structured beta
-  evaluation protocol.
+## Understanding the system
 
-## Security and privacy
+- [Architecture](architecture.md) defines the data flow, trust boundary,
+  provider interface, execution runtime, and non-negotiable security
+  invariants.
+- [Desktop interface](desktop_interface.md) records the interaction,
+  accessibility, and cross-platform behavior expected of the desktop app.
+- [Product direction](vision.md) describes the current product contract,
+  priorities, and explicit non-goals.
 
-- [`security_threat_model.json`](security_threat_model.json) — machine-readable
-  threats, controls, and linked tests.
-- [`security/`](security/) — schemas for independent assessment attestations.
-- [`windows_appcontainer.md`](windows_appcontainer.md) — Windows
-  AppContainer design and native qualification boundary.
+## Contributing and verification
 
-## Desktop and integrations
+- [Contributing to Sift](../CONTRIBUTING.md) covers environment setup,
+  repository structure, engineering conventions, and test expectations.
+- [Extending analysis coverage](extending_analysis_shapes.md) is the
+  implementation guide for adding result shapes without weakening disclosure
+  controls.
+- [Verification](verification.md) contains maintainer-run security, method,
+  integration, and native release checks.
+- [Windows AppContainer backend](windows_appcontainer.md) documents the
+  Windows confinement design and native qualification boundary.
 
-- [`desktop_interface.md`](desktop_interface.md) — desktop interaction,
-  accessibility, and cross-platform interface contract.
-- [`live_database_certification.json`](live_database_certification.json) —
-  bring-your-own-database compatibility scenarios and evidence format.
-- [`qualification_inventory.json`](qualification_inventory.json) —
-  machine-readable qualification inventory used by the evaluation pipeline.
+## Structured assurance records
 
-Generated qualification reports and native installers belong in `dist/` and
-are intentionally excluded from the source repository.
+The JSON files in this directory are inputs to Sift's automated assurance and
+qualification tooling. They are maintained as machine-readable records rather
+than narrative documentation:
+
+- `security_threat_model.json`
+- `live_database_certification.json`
+- `qualification_inventory.json`
+- `beta_study_protocol.json`
+
+Schemas for independent security assessments are under `docs/security/`.
+Generated qualification reports, installers, and local evidence belong in
+`dist/` and are not committed to the repository.
+
+For the motivation behind the project, read
+[What If an AI Analyst Never Saw Your Raw Data?](https://sapieninstitute.org/projects/sift).
