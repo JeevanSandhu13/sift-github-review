@@ -296,7 +296,7 @@ dev = [
     # Test-only: reads back the PDF export to assert on its
     # actual text content, not just "a file was written". Never
     # imported by the shipped runtime.
-    "pypdf>=5.0",
+    "pypdf>=6.21.4",
 ]
 
 [build-system]
